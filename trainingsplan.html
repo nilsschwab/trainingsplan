@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BKS Trainingsplan</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="app/schriften.css">
+<style>
+/* ===================================================================
+   BKS Bewegungszentrum — Trainingsplan
+   Fassung 16.10.2026, ersetzt Dokumente\Trainingsplan\Trainingsplan Vorlage.odt
+
+   Zwei Seiten A4 quer, Aufteilung wie in der alten Vorlage:
+   Seite 1: Cardio, Geraete, Koordination.
+   Seite 2: Freie Uebungen allein, mit Skizzenfeld. Dort stehen viele
+   Seilzuguebungen, die von Hand skizziert werden. Die Seite braucht
+   deshalb die volle Hoehe (sechs Zeilen zu knapp 28 mm).
+
+   Platz fuer Hinweise: Serien, Wdh, Pause und Gewicht brauchen nur
+   wenige Zeichen und sind schmal, die Hinweisspalte bekommt den Rest
+   der Breite (Geraete: rund 117 mm statt 44 mm in der alten Vorlage).
+   Auf Seite 2 hat jede Zeile vier gepunktete Schreibzeilen.
+
+   Gewicht bei den Freien Uebungen ist neu - fuer die Seilzuege.
+   Skizzen: von Hand auf den Ausdruck, oder am Bildschirm ins Skizzenfeld
+   zeichnen (Maus, Stift). Vom Tablet (tablet.html) kommen sie mit dem
+   Plan herein und werden mitgedruckt. Gemeinsamer Code in kern.js.
+
+   Zwei Wege:
+   - Von Hand: leer drucken (oder BKS-Trainingsplan-Vorlage.pdf).
+   - Am PC, wie bisher mit der ODT-Vorlage: Vorlage oeffnen, fuer das
+     Mitglied ausfuellen, "Plan speichern" in dessen Ordner in
+     Dokumente\Kunden. Das ergibt "Trainingsplan Name (Datum).html".
+     Ein Doppelklick darauf oeffnet diese Vorlage mit dem Plan wieder
+     (die Datei sucht die Vorlage ueber den OneDrive-Ordner, klappt
+     also auf jedem PC mit derselben OneDrive-Anbindung). Der Plan steht
+     nur in dieser Datei, die Seite speichert nichts im Browser.
+     "Fuers Handy" macht aus dem Plan auf dem Bildschirm den QR-Code -
+     damit hat jedes Mitglied automatisch seinen eigenen.
+
+   Wird eine Seite durch langen Text zu voll, zeigt der Bildschirm das
+   rot an - im Druck wuerde das Ende sonst abgeschnitten.
+   =================================================================== */
+:root{
+  --indigo:  #3D4BA7;
+  --hellblau:#5894D5;
+  --tinte:   #12141c;
+  --text2:   #2b2f3b;
+  --grau:    #5d6270;
+  --linie:   #dfe2ea;
+  --leicht:  #c4c9d6;
+  --hilfe:   #b3b9c8;
+  --feld:    #eef2fa;
+  --papier:  #ffffff;
+}
+*{ margin:0; padding:0; box-sizing:border-box; }
+html{ background:#3a3d46; }
+body{ font-family:'Inter',system-ui,sans-serif; color:var(--tinte); font-synthesis:none;
+  -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.serif{ font-family:'Instrument Serif',Georgia,serif; font-style:italic; font-weight:400;
+  letter-spacing:-.012em; color:var(--indigo); }
+
+/* ---------- Werkzeugleiste (nur Bildschirm) ---------- */
+.werkzeug{
+  position:sticky; top:0; z-index:5;
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center;
+  padding:10px 16px; background:#23262e; color:#e6e8ee; font-size:13px;
+}
+.werkzeug button, .werkzeug label{
+  font:inherit; font-weight:500; cursor:pointer;
+  background:#3a3f4b; color:#fff; border:1px solid #4b5160; border-radius:4px; padding:7px 12px;
+}
+.werkzeug button.haupt{ background:var(--indigo); border-color:var(--indigo); }
+.werkzeug button:hover, .werkzeug label:hover{ filter:brightness(1.15); }
+.werkzeug input[type=file]{ display:none; }
+.werkzeug .hinweis{ flex-basis:100%; text-align:center; color:#a9afbd; font-size:12px; }
+.werkzeug .status{ color:#9fe0b0; font-weight:500; }
+.werkzeug .status:empty{ display:none; }
+.werkzeug .warnung{ flex-basis:100%; text-align:center; color:#ff8a80; font-weight:600; display:none; }
+body.zu-voll .werkzeug .warnung{ display:block; }
+
+/* ---------- Blatt ---------- */
+.blatt{
+  width:297mm; height:210mm; margin:18px auto 0; background:var(--papier);
+  padding:8mm 12mm 6mm; box-shadow:0 10px 40px rgba(0,0,0,.45);
+  display:flex; flex-direction:column; position:relative; overflow:hidden;
+}
+.blatt + .blatt{ margin-top:24px; }
+.blatt:last-of-type{ margin-bottom:40px; }
+.blatt.zu-voll{ outline:2mm solid #e53935; outline-offset:-2mm; }
+.muster{
+  display:none; position:absolute; top:3mm; right:12mm;
+  font-size:6.6pt; font-weight:600; letter-spacing:.16em; text-transform:uppercase;
+  color:#fff; background:var(--hellblau); padding:.8mm 2.2mm;
+}
+body.beispiel .muster{ display:block; }
+
+/* Kopf Seite 1 */
+.kopf{
+  display:grid; grid-template-columns:auto auto 1fr; gap:9mm; align-items:end;
+  padding-bottom:3mm; border-bottom:.25mm solid var(--linie); margin-bottom:4mm;
+}
+.kopf img{ height:12mm; width:auto; display:block; }
+h1{ font-weight:300; font-size:20pt; letter-spacing:-.032em; line-height:1; padding-bottom:.6mm; white-space:nowrap; }
+h1 .serif{ font-size:24pt; }
+.person{ display:grid; grid-template-columns:2.2fr 1fr 1.5fr; gap:6mm; }
+
+/* Kopf Seite 2 */
+.kopf2{
+  display:grid; grid-template-columns:1fr 80mm; gap:9mm; align-items:end;
+  padding-bottom:3mm; border-bottom:.25mm solid var(--linie); margin-bottom:4mm;
+}
+.kopf2 h2{ font-weight:300; font-size:15pt; letter-spacing:-.025em; line-height:1; }
+.kopf2 h2 .serif{ font-size:18pt; }
+
+/* Kopffelder */
+.feld label{
+  display:block; font-size:6.6pt; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--grau); margin-bottom:.8mm;
+}
+.feld input, .feld .spiegel{
+  display:block; width:100%; height:7mm; font:inherit; font-size:10.5pt; color:inherit;
+  background:transparent; border:0; outline:0; border-bottom:.25mm solid var(--leicht); padding:0 .6mm;
+}
+.feld .spiegel{ line-height:7mm; }
+.feld input:focus{ background:var(--feld); border-bottom-color:var(--indigo); }
+
+/* ---------- Abschnitte ---------- */
+.abschnitt + .abschnitt{ margin-top:4mm; }
+table.plan{ width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+.plan th{
+  height:7mm; padding:0 2mm; background:var(--feld); vertical-align:middle;
+  font-size:6.6pt; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--grau);
+  text-align:center; white-space:nowrap;
+}
+.plan th.titel{
+  background:var(--akzent); color:#fff; text-align:left; padding-left:3.4mm;
+  font-size:10.5pt; letter-spacing:-.005em; text-transform:none;
+}
+.plan th.notiz, .plan th.skizze{ text-align:left; padding-left:3mm; }
+.plan td{
+  height:var(--zeile); padding:0 2mm; position:relative; vertical-align:middle;
+  border-bottom:.25mm solid var(--leicht); border-left:.2mm solid var(--linie);
+}
+.plan td:first-child{ border-left:.9mm solid var(--akzent); padding-left:3mm; }
+.plan td.k{ text-align:center; font-size:10pt; font-variant-numeric:tabular-nums; }
+.plan td.notiz{ padding-left:3mm; padding-right:2.5mm; }
+.cardio,  .koordination{ --akzent:var(--hellblau); }
+.geraete, .frei        { --akzent:var(--indigo); }
+
+/* Freie Uebungen: vier Schreibzeilen pro Zeile in Uebung und Hinweis - drei gepunktete
+   Linien bei 25, 50 und 75 Prozent. Als Rahmenlinien, nicht als Hintergrundverlauf:
+   Chrome rastert so feine Verlaeufe beim PDF-Druck weg, Rahmen bleiben Vektor. */
+.plan.frei td.name::before, .plan.frei td.notiz::before,
+.plan.frei td.name::after,  .plan.frei td.notiz::after{
+  content:""; position:absolute; left:3mm; right:2.5mm; pointer-events:none;
+  border-top:.3mm dotted var(--hilfe);
+}
+.plan.frei td.name::before, .plan.frei td.notiz::before{ top:25%; bottom:25%; border-bottom:.3mm dotted var(--hilfe); }
+.plan.frei td.name::after,  .plan.frei td.notiz::after { top:50%; }
+.plan.frei td.voll::before, .plan.frei td.voll::after{ display:none; }
+/* Skizzenfeld mit Punktraster als Zeichenhilfe. Ohne Innenabstand, damit das Feld genau das
+   Seitenverhaeltnis der Tablet-Skizzen hat (58 x 27,5 mm = 256 x 121 Punkte) und nichts verzerrt. */
+.plan td.skizze{
+  padding:0; vertical-align:top;
+  background-image:radial-gradient(circle, var(--hilfe) .2mm, transparent .26mm);
+  background-size:4mm 4mm; background-position:center;
+}
+.plan td.skizze.voll{ background-image:none; }
+/* Zeilenhoehe minus Unterkante, sonst waechst jede Zeile um 0,25 mm und Seite 2 laeuft ueber */
+.zf{ width:100%; height:calc(var(--zeile) - .3mm); cursor:crosshair; }
+/* Rueckgaengig und Loeschen: nur am Bildschirm und nur mit Skizze */
+.zf-knoepfe{ position:absolute; top:.8mm; right:.8mm; display:none; gap:.8mm; }
+td.skizze.voll:hover .zf-knoepfe{ display:flex; }
+.zf-knoepfe button{ font:inherit; font-size:7pt; line-height:1; padding:1mm 1.6mm; border-radius:1mm; cursor:pointer;
+  border:.2mm solid var(--leicht); background:#fff; color:var(--grau); }
+
+/* Tippfelder in den Zellen */
+.ce{ display:block; outline:0; min-height:1.2em; font-size:9pt; line-height:1.22; color:var(--text2);
+  white-space:pre-wrap; overflow-wrap:anywhere; }
+.plan.frei .ce{ line-height:1.32; }
+.ce:focus{ background:var(--feld); box-shadow:0 0 0 1mm var(--feld); }
+td.name .ce{ font-size:9.6pt; font-weight:500; color:var(--tinte); }
+td.k .ce{ font-size:10pt; color:var(--tinte); }
+
+/* Fuss */
+.fuss{
+  margin-top:auto; padding-top:2.2mm; border-top:.25mm solid var(--linie);
+  display:flex; justify-content:space-between; gap:6mm; font-size:7pt; color:var(--grau);
+}
+.fuss b{ font-weight:600; color:var(--tinte); }
+
+/* ---------- Dialog "Fuers Handy" (nur Bildschirm) ---------- */
+.dialog{ position:fixed; inset:0; z-index:20; background:rgba(18,20,28,.55); display:none; align-items:center; justify-content:center; padding:20px; }
+.dialog.offen{ display:flex; }
+.dialog-inhalt{ background:#fff; border-radius:10px; width:480px; max-width:100%; max-height:100%; overflow:auto; padding:24px 26px; font-size:14px; line-height:1.45; color:var(--text2); }
+.dialog h2{ font-size:22px; font-weight:300; letter-spacing:-.02em; color:var(--tinte); margin-bottom:8px; }
+.dialog h2 .serif{ font-size:25px; }
+/* Gross genug, dass die Handykamera auch einen dichten Code vom Bildschirm liest */
+.dialog .qr{ width:400px; max-width:100%; margin:16px auto 6px; }
+.dialog .qr svg{ display:block; width:100%; height:auto; }
+.dialog .klein{ font-size:12px; color:var(--grau); margin-top:10px; }
+.dialog .warn{ background:#fff4e5; color:#8a4b00; border-radius:6px; padding:8px 10px; margin-bottom:10px; }
+.dialog .knoepfe{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.dialog button{ font:inherit; font-weight:500; cursor:pointer; border-radius:6px; padding:8px 13px; border:1px solid var(--leicht); background:#fff; color:var(--tinte); }
+.dialog button.haupt{ background:var(--indigo); border-color:var(--indigo); color:#fff; }
+
+/* ---------- Druck ---------- */
+@page{ size:A4 landscape; margin:0; }
+@media print{
+  html, body{ background:#fff; }
+  .werkzeug, .dialog{ display:none !important; }
+  .blatt{ margin:0 !important; box-shadow:none; outline:0 !important; break-after:page; }
+  .blatt:last-of-type{ break-after:auto; }
+  .ce:focus, .feld input:focus{ background:transparent; box-shadow:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="werkzeug">
+  <button class="haupt" type="button" id="b-druck">Drucken / als PDF speichern</button>
+  <button type="button" id="b-sichern">Plan speichern</button>
+  <label>Plan öffnen<input type="file" id="b-laden" accept=".html,.json"></label>
+  <button type="button" class="haupt" id="b-handy">Fürs Handy (QR-Code)</button>
+  <button type="button" id="b-handy-laden">Sicherung vom Handy laden</button>
+  <button type="button" id="b-beispiel">Beispiel zeigen</button>
+  <button type="button" id="b-leeren">Leeren</button>
+  <span class="status" id="status"></span>
+  <p class="hinweis">Pro Mitglied: Plan eintippen, „Plan speichern“ in den Ordner des Mitglieds unter Dokumente\Kunden.
+    Ein Doppelklick auf diese Datei öffnet den Plan wieder. Für eine Anpassung das Datum ändern und neu speichern, dann bleibt der alte Plan in der Akte.
+    „Fürs Handy“ macht aus dem Plan auf dem Bildschirm den QR-Code für genau dieses Mitglied.</p>
+  <p class="warnung">Eine Seite ist zu voll (rot umrandet) – im Druck würde das Ende fehlen. Hinweise dort kürzen.</p>
+</div>
+
+<main class="blatt" id="seite1">
+  <span class="muster">Beispiel</span>
+  <header class="kopf">
+    <img src="app/logo.png" alt="Bewegungszentrum für Körperwohl und Squash">
+    <h1>Ihr <span class="serif">Trainingsplan</span></h1>
+    <div class="person">
+      <div class="feld"><label>Name</label><input data-k="name"></div>
+      <div class="feld"><label>Erstellt am</label><input data-k="datum"></div>
+      <div class="feld"><label>Betreut von</label><input data-k="betreuer"></div>
+    </div>
+  </header>
+
+  <section class="abschnitt" data-abschnitt="cardio"></section>
+  <section class="abschnitt" data-abschnitt="geraete"></section>
+  <section class="abschnitt" data-abschnitt="koordination"></section>
+
+  <footer class="fuss">
+    <span><b>BKS Bewegungszentrum</b> · Felsenstraße 7, Magstadt · 07159 45151</span>
+    <span>Seite 1 von 2</span>
+  </footer>
+</main>
+
+<main class="blatt" id="seite2">
+  <span class="muster">Beispiel</span>
+  <header class="kopf2">
+    <h2>Ihr <span class="serif">Trainingsplan</span> · Fortsetzung</h2>
+    <div class="feld"><label>Name</label><div class="spiegel" id="name2"></div></div>
+  </header>
+
+  <section class="abschnitt" data-abschnitt="frei"></section>
+
+  <footer class="fuss">
+    <span><b>BKS Bewegungszentrum</b> · Felsenstraße 7, Magstadt · 07159 45151</span>
+    <span>Seite 2 von 2</span>
+  </footer>
+</main>
+
+<div class="dialog" id="handy">
+  <div class="dialog-inhalt">
+    <h2>Plan <span class="serif">fürs Handy</span></h2>
+    <p class="warn" id="handy-warnung" hidden>Die Handy-Seite ist noch nicht online. Der Code führt erst nach dem Veröffentlichen zum Plan.</p>
+    <p>Das Mitglied scannt den Code mit der Handykamera. Oder Sie schicken den Link per WhatsApp oder E-Mail.</p>
+    <div class="qr" id="qr"></div>
+    <p class="klein" id="qr-info"></p>
+    <div class="knoepfe">
+      <button type="button" class="haupt" id="b-kopieren">Link kopieren</button>
+      <button type="button" id="b-testen">Selbst öffnen</button>
+      <button type="button" id="b-dialog-zu">Schließen</button>
+    </div>
+    <p class="klein">Der Plan steckt im Link selbst. Es wird nichts hochgeladen und nirgends gespeichert.
+      Skizzen kommen nicht mit, die bleiben auf dem Papierplan.</p>
+  </div>
+</div>
+
+<script src="kern.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+
+<script>
+/* Spalten: [Schluessel, Ueberschrift, Breite in mm]. Die Hinweisspalte bekommt den Rest.
+   Zeilenzahl wie in der alten Vorlage; Hoehe in mm, so verteilt, dass Seite 1 genau voll ist. */
+const ABSCHNITTE = {
+  cardio:       { titel:'Cardio',        zeilen:4, hoehe:7.8,
+                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Dauer / Wdh',27]] },
+  geraete:      { titel:'Geräte',        zeilen:8, hoehe:8.8,
+                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Dauer / Wdh',27], ['pause','Pause',19], ['kg','Gewicht / kg',24]] },
+  koordination: { titel:'Koordination',  zeilen:5, hoehe:8,
+                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Dauer / Wdh',27]] },
+  frei:         { titel:'Freie Übungen', zeilen:6, hoehe:27.5,
+                  spalten:[['name','',50], ['skizze','Skizze',58], ['serien','Serien',17], ['dauer','Dauer / Wdh',23], ['pause','Pause',17], ['kg','Gewicht / kg',23]] },
+};
+
+/* ---------- Aufbau ---------- */
+const ce = k => '<div class="ce" contenteditable="true" data-k="' + k + '"></div>';
+document.querySelectorAll('[data-abschnitt]').forEach(sec => {
+  const id = sec.dataset.abschnitt, a = ABSCHNITTE[id];
+  let h = '<table class="plan ' + id + '" style="--zeile:' + a.hoehe + 'mm">' +
+    '<colgroup>' + a.spalten.map(([, , b]) => '<col style="width:' + b + 'mm">').join('') + '<col></colgroup>' +
+    '<thead><tr>' + a.spalten.map(([s, t]) =>
+      s === 'name' ? '<th class="titel">' + a.titel + '</th>' : '<th class="' + s + '">' + t + '</th>').join('') +
+    '<th class="notiz">Hinweis / Anmerkung</th></tr></thead><tbody>';
+  for (let i = 0; i < a.zeilen; i++) {
+    const b = id + '.' + i + '.';
+    h += '<tr>' + a.spalten.map(([s]) =>
+        s === 'name'   ? '<td class="name">' + ce(b + s) + '</td>' :
+        s === 'skizze' ? '<td class="skizze"><div class="zf" data-k="' + b + s + '"></div>' +
+                         '<span class="zf-knoepfe"><button type="button" data-zf="rueck">↶</button><button type="button" data-zf="leeren">✕</button></span></td>' :
+                         '<td class="k">' + ce(b + s) + '</td>').join('') +
+      '<td class="notiz">' + ce(b + 'notiz') + '</td></tr>';
+  }
+  sec.innerHTML = h + '</tbody></table>';
+});
+
+/* Skizzen: Zeichenfeld aus kern.js (Maus, Stift, Finger). Wie ein Eingabefeld ansprechbar
+   ueber .value - damit gehen Skizzen beim Sammeln, Setzen und Speichern einfach mit. */
+document.querySelectorAll('.zf').forEach(el => {
+  const z = Kern.Zeichenfeld(el, () => rechne());
+  Object.defineProperty(el, 'value', { get: () => z.wert, set: v => { z.wert = v; } });
+  el.parentElement.querySelector('[data-zf="rueck"]').onclick = () => z.rueckgaengig();
+  el.parentElement.querySelector('[data-zf="leeren"]').onclick = () => { if (confirm('Skizze löschen?')) z.leeren(); };
+});
+
+/* ---------- Pruefen ---------- */
+const feld = k => document.querySelector('[data-k="' + k + '"]');
+const wert = f => (f.isContentEditable ? f.innerText : f.value).trim();
+
+function rechne(){
+  // Leere Tippfelder wirklich leeren (Edge laesst gern ein <br> stehen), Schreiblinien nur in leeren Zellen
+  document.querySelectorAll('.ce').forEach(f => {
+    const leer = wert(f) === '';
+    if (leer && f.innerHTML !== '' && f !== document.activeElement) f.innerHTML = '';
+    f.parentElement.classList.toggle('voll', !leer);
+  });
+  document.querySelectorAll('.zf').forEach(f => f.parentElement.classList.toggle('voll', !!f.value));
+  document.getElementById('name2').textContent = wert(feld('name'));
+  // Zu viel Text schiebt die Seite ueber A4 hinaus
+  let zuVoll = false;
+  document.querySelectorAll('.blatt').forEach(b => {
+    const voll = b.scrollHeight > b.clientHeight + 1;
+    b.classList.toggle('zu-voll', voll);
+    zuVoll = zuVoll || voll;
+  });
+  document.body.classList.toggle('zu-voll', zuVoll);
+}
+
+/* Eingefuegter Text kommt ohne Formatierung (z. B. aus der alten ODT-Vorlage) */
+document.addEventListener('paste', e => {
+  if (!e.target.closest || !e.target.closest('.ce')) return;
+  e.preventDefault();
+  document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+});
+
+/* ---------- Sichern, Laden, Beispiel ---------- */
+function sammeln(){
+  const d = {};
+  document.querySelectorAll('[data-k]').forEach(f => { const v = wert(f); if (v) d[f.dataset.k] = v; });
+  return d;
+}
+function setzen(d){
+  document.querySelectorAll('[data-k]').forEach(f => {
+    const v = d[f.dataset.k] !== undefined ? d[f.dataset.k] : '';
+    if (f.isContentEditable) f.innerText = v; else f.value = v;
+  });
+  rechne();
+}
+const heute = Kern.heute;
+// z. B. "Trainingsplan Martina M. (16.10.2026)"
+const dateiname = () => Kern.dateiname(wert(feld('name')), wert(feld('datum')));
+
+// Edge schlaegt beim Speichern als PDF den Seitentitel als Dateinamen vor
+const SEITENTITEL = document.title;
+addEventListener('beforeprint', () => { rechne(); if (wert(feld('name'))) document.title = dateiname(); });
+addEventListener('afterprint',  () => { document.title = SEITENTITEL; });
+
+let statusZeit;
+function status(text){
+  const s = document.getElementById('status'); s.textContent = text;
+  clearTimeout(statusZeit); statusZeit = setTimeout(() => { s.textContent = ''; }, 6000);
+}
+
+document.getElementById('b-druck').onclick = () => window.print();
+
+/* Plan speichern: eine kleine HTML-Datei fuer die Mitgliederakte (Kern.aktenDatei). Sie enthaelt
+   nur den gepackten Plan samt Skizzen und oeffnet per Doppelklick diese Vorlage damit. */
+const { packen, auspacken, codeAus } = Kern;
+
+document.getElementById('b-sichern').onclick = async () => {
+  rechne();
+  const daten = planDaten();
+  if (!daten.n && !Object.keys(daten.x).length) { alert('Der Plan ist noch leer.'); return; }
+  if (!daten.n && !confirm('Der Plan hat keinen Namen. Trotzdem speichern?')) return;
+  const name = dateiname() + '.html', inhalt = Kern.aktenDatei(await packen(daten), dateiname());
+  // Edge zeigt "Speichern unter" und merkt sich den zuletzt gewaehlten Ordner
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await showSaveFilePicker({ id: 'trainingsplan', suggestedName: name,
+        types: [{ description: 'Trainingsplan', accept: { 'text/html': ['.html'] } }] });
+      const w = await h.createWritable(); await w.write(inhalt); await w.close();
+      status('Gespeichert: ' + h.name);
+      return;
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  // Ohne Dialog landet die Datei im Download-Ordner
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([inhalt], { type: 'text/html' }));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+  status('Im Download-Ordner gespeichert: ' + name + ' – bitte in den Ordner des Mitglieds verschieben.');
+};
+
+/* Gespeicherten Plan oder Handy-Sicherung in die Felder holen.
+   alsAnpassung: Datum auf heute setzen (bei einer Sicherung vom Handy). */
+function planEinsetzen(daten, alsAnpassung){
+  const s = daten.t === 'stand' ? daten.stand : null, p = s ? s.plan : daten;
+  const datum = s ? heute() : (alsAnpassung ? heute() : (p.d || ''));
+  const d = { name: p.n || '', betreuer: p.b || '', datum };
+  const zuviel = [];
+  Object.keys(KURZ).forEach(id => {
+    const liste = s ? s.ex.filter(e => e.s === KURZ[id]).map(e => [e.name, e.serien, e.dauer, e.pause, e.kg.length ? e.kg[e.kg.length - 1].w : '', e.notiz, e.skizze || ''])
+                    : (daten.x[KURZ[id]] || []);
+    liste.forEach((z, i) => {
+      if (i >= ABSCHNITTE[id].zeilen) { zuviel.push(z[0]); return; }
+      FELDER.forEach((f, j) => { if (z[j]) d[id + '.' + i + '.' + f] = z[j]; });
+    });
+  });
+  document.body.classList.remove('beispiel');
+  setzen(d);
+  if (zuviel.length) alert('Dafür reichen die Zeilen nicht, bitte von Hand ergänzen: ' + zuviel.join(', '));
+}
+document.getElementById('b-laden').onchange = e => {
+  const datei = e.target.files[0]; if (!datei) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    try {
+      const code = codeAus(r.result);
+      if (code) planEinsetzen(await auspacken(code), false);
+      else { document.body.classList.remove('beispiel'); setzen(JSON.parse(r.result)); }   // fruehe Fassung als JSON
+      status('Geöffnet: ' + datei.name);
+    } catch (err) { alert('Die Datei ließ sich nicht lesen.'); }
+  };
+  r.readAsText(datei); e.target.value = '';
+};
+document.getElementById('b-leeren').onclick = () => {
+  if (confirm('Alle Eintragungen auf dem Plan löschen?')) { document.body.classList.remove('beispiel'); setzen({}); }
+};
+
+/* ---------- Fuers Handy: Plan als Link und QR-Code ----------
+   Der Plan wird komprimiert hinter das # der Handy-Adresse gehaengt (app\index.html, siehe kern.js).
+   Dieser Teil einer Adresse geht nie an den Server - es wird nichts hochgeladen. */
+const KURZ = { cardio:'c', geraete:'g', koordination:'k', frei:'f' };
+const FELDER = ['name', 'serien', 'dauer', 'pause', 'kg', 'notiz', 'skizze'];
+
+// Nur Zeilen mit Uebungsnamen; jede Zeile als [Name, Serien, Wdh, Pause, Gewicht, Hinweis, Skizze]
+function planDaten(){
+  const x = {};
+  Object.keys(ABSCHNITTE).forEach(id => {
+    const zeilen = [];
+    for (let i = 0; i < ABSCHNITTE[id].zeilen; i++) {
+      const z = FELDER.map(f => { const el = feld(id + '.' + i + '.' + f); return el ? wert(el) : ''; });
+      if (z[0]) zeilen.push(z);
+    }
+    if (zeilen.length) x[KURZ[id]] = zeilen;
+  });
+  return { t:'plan', v:1, n: wert(feld('name')), d: wert(feld('datum')) || heute(), b: wert(feld('betreuer')), x };
+}
+
+let handyLink = '';
+const dialog = document.getElementById('handy');
+document.getElementById('b-handy').onclick = async () => {
+  rechne();
+  const daten = planDaten();
+  const anzahl = Object.values(daten.x).reduce((n, z) => n + z.length, 0);
+  if (!anzahl) { alert('Erst den Plan eintippen, mindestens eine Übung.'); return; }
+  // Mit Skizzen, solange der QR-Code das hergibt; sonst ohne (der kopierte Link nimmt sie mit)
+  const r = await Kern.handyLink(daten);
+  handyLink = r.lang || r.link;
+  const qr = document.getElementById('qr'), info = document.getElementById('qr-info');
+  qr.innerHTML = '';
+  info.textContent = anzahl + (anzahl === 1 ? ' Übung' : ' Übungen') + (daten.n ? ' für ' + daten.n : ', ohne Namen') +
+    (r.ohneSkizzen ? '. Die Skizzen passen nicht mehr in den QR-Code, der kopierte Link nimmt sie mit' : '');
+  try {
+    const q = qrcode(0, 'L'); q.addData(r.link); q.make();
+    qr.innerHTML = q.createSvgTag({ cellSize: 4, margin: 4, scalable: true });
+  } catch (e) {
+    info.textContent += typeof qrcode === 'undefined'
+      ? '. Für den QR-Code fehlt die Internetverbindung, der Link funktioniert trotzdem.'
+      : '. Der Plan ist zu lang für einen QR-Code, bitte den Link schicken.';
+  }
+  document.getElementById('handy-warnung').hidden = Kern.ONLINE || location.hostname === 'localhost';
+  dialog.classList.add('offen');
+};
+document.getElementById('b-kopieren').onclick = async () => {
+  try { await navigator.clipboard.writeText(handyLink); document.getElementById('b-kopieren').textContent = 'Kopiert'; }
+  catch (e) { prompt('Link zum Kopieren:', handyLink); }
+  setTimeout(() => { document.getElementById('b-kopieren').textContent = 'Link kopieren'; }, 2000);
+};
+document.getElementById('b-testen').onclick = () => window.open(handyLink, '_blank');
+document.getElementById('b-dialog-zu').onclick = () => dialog.classList.remove('offen');
+dialog.onclick = e => { if (e.target === dialog) dialog.classList.remove('offen'); };
+
+/* Sicherung vom Handy laden: das Mitglied schickt seinen Sicherungslink (Mehr -> Sicherung).
+   Uebernimmt die Uebungen mit dem zuletzt eingetragenen Gewicht - Grundlage fuer die Anpassung. */
+document.getElementById('b-handy-laden').onclick = async () => {
+  const text = prompt('Sicherungslink vom Handy des Mitglieds hier einfügen:');
+  if (!text) return;
+  const code = codeAus(text);
+  let daten = null;
+  try { if (code) daten = await auspacken(code); } catch (e) {}
+  if (!daten || !(daten.t === 'stand' || daten.t === 'plan')) { alert('Das ist kein Trainingsplan-Link.'); return; }
+  if (Object.keys(sammeln()).length && !confirm('Der Plan auf dem Bildschirm wird ersetzt. Fortfahren?')) return;
+  planEinsetzen(daten, true);
+};
+
+/* Erfundener Plan, nur zum Zeigen, wie getippter Text aussieht — keine echte Person, keine Empfehlung */
+const BEISPIEL = {
+  'name':'Martina M.', 'datum':'16.10.2026', 'betreuer':'Nils Schwab',
+  'cardio.0.name':'Fahrradergometer', 'cardio.0.serien':'1', 'cardio.0.dauer':'10 Min',
+  'cardio.0.notiz':'Zum Aufwärmen, Stufe 6. So locker, dass Sie sich noch unterhalten können.',
+  'cardio.1.name':'Crosstrainer', 'cardio.1.serien':'1', 'cardio.1.dauer':'8 Min',
+  'cardio.1.notiz':'Zum Abschluss ruhig ausklingen lassen.',
+  'geraete.0.name':'Beinpresse', 'geraete.0.serien':'3', 'geraete.0.dauer':'12', 'geraete.0.pause':'60 s', 'geraete.0.kg':'50',
+  'geraete.0.notiz':'Sitz Stufe 4. Knie zeigen über die Fußspitzen, unten nicht ganz durchstrecken. Langsam zurück, 3 Sekunden.',
+  'geraete.1.name':'Brustpresse', 'geraete.1.serien':'3', 'geraete.1.dauer':'12', 'geraete.1.pause':'60 s', 'geraete.1.kg':'20',
+  'geraete.1.notiz':'Griffe auf Brusthöhe. Schultern bleiben unten, beim Drücken ausatmen.',
+  'geraete.2.name':'Rudern sitzend', 'geraete.2.serien':'3', 'geraete.2.dauer':'12', 'geraete.2.pause':'60 s', 'geraete.2.kg':'25',
+  'geraete.2.notiz':'Brust bleibt am Polster. Schulterblätter zusammenziehen, kurz halten.',
+  'geraete.3.name':'Latzug', 'geraete.3.serien':'3', 'geraete.3.dauer':'10', 'geraete.3.pause':'60 s', 'geraete.3.kg':'25',
+  'geraete.3.notiz':'Zur Brust ziehen, nicht in den Nacken.',
+  'geraete.4.name':'Beinstrecker', 'geraete.4.serien':'2', 'geraete.4.dauer':'15', 'geraete.4.pause':'45 s', 'geraete.4.kg':'15',
+  'geraete.4.notiz':'Erst links, dann rechts einzeln. Oben eine Sekunde halten.',
+  'geraete.5.name':'Rückenstrecker', 'geraete.5.serien':'2', 'geraete.5.dauer':'15', 'geraete.5.pause':'45 s', 'geraete.5.kg':'30',
+  'geraete.5.notiz':'Bewegung kommt aus der Hüfte, Kopf in Verlängerung der Wirbelsäule.',
+  'koordination.0.name':'Posturomed, Einbeinstand', 'koordination.0.serien':'3', 'koordination.0.dauer':'je 30 s',
+  'koordination.0.notiz':'Knie leicht gebeugt, Blick auf einen festen Punkt. Wird es zu leicht: Augen schließen.',
+  'koordination.1.name':'Tandemstand', 'koordination.1.serien':'2', 'koordination.1.dauer':'je 30 s',
+  'koordination.1.notiz':'Ein Fuß direkt vor dem anderen. Neben der Wand üben.',
+  'frei.0.name':'Seilzug Rudern einarmig\nRolle auf Brusthöhe', 'frei.0.serien':'3', 'frei.0.dauer':'je 12', 'frei.0.pause':'60 s', 'frei.0.kg':'10',
+  'frei.0.notiz':'Schrittstellung, das Gegenbein vorn. Ellenbogen nah am Körper nach hinten ziehen, die Schulter bleibt unten. Langsam nachgeben.',
+  'frei.1.name':'Seilzug Drehung\nvon hoch nach tief', 'frei.1.serien':'2', 'frei.1.dauer':'je 10', 'frei.1.pause':'45 s', 'frei.1.kg':'7,5',
+  'frei.1.notiz':'Arme bleiben lang, die Drehung kommt aus dem Oberkörper. Die Hüfte zeigt nach vorn.',
+  'frei.2.name':'Kniebeuge mit Kurzhantel', 'frei.2.serien':'3', 'frei.2.dauer':'12', 'frei.2.pause':'60 s', 'frei.2.kg':'6',
+  'frei.2.notiz':'Hantel vor der Brust. Gesäß nach hinten wie zum Hinsetzen, Fersen bleiben am Boden.',
+  'frei.3.name':'Unterarmstütz', 'frei.3.serien':'3', 'frei.3.dauer':'20 s', 'frei.3.pause':'40 s',
+  'frei.3.notiz':'Auf der Matte. Körper bildet eine Linie, kein Hohlkreuz. Normal weiteratmen.',
+};
+// Beispielskizze: Strichfigur in Schrittstellung am Seilzugturm, Pfeil zeigt die Zugrichtung
+function beispielSkizze(){
+  const kreis = (cx, cy, r) => Array.from({ length: 17 }, (_, i) =>
+    [Math.round(cx + r * Math.cos(i / 16 * 2 * Math.PI)), Math.round(cy + r * Math.sin(i / 16 * 2 * Math.PI))]);
+  return Kern.skizzePacken([
+    [[40,116],[245,116]], [[225,116],[225,8]], kreis(225,55,3), [[222,55],[150,57]],
+    kreis(110,24,8), [[110,32],[101,72]], [[108,41],[150,57]], [[108,41],[94,60]],
+    [[101,72],[121,92],[129,114]], [[101,72],[83,95],[70,114]],
+    [[182,38],[152,38]], [[158,33],[152,38],[158,43]]
+  ]);
+}
+BEISPIEL['frei.0.skizze'] = beispielSkizze();
+document.getElementById('b-beispiel').onclick = () => { document.body.classList.add('beispiel'); setzen(BEISPIEL); };
+
+document.addEventListener('input', rechne);
+document.addEventListener('focusout', () => setTimeout(rechne));
+document.fonts.ready.then(rechne);
+// Doppelklick auf eine gespeicherte Plan-Datei kommt mit "#p=..." hierher,
+// "Drucken / PDF" auf dem Tablet mit "#p=...&drucken"
+async function ausAdresse(){
+  const code = codeAus(location.hash), drucken = /&drucken/.test(location.hash);
+  try { planEinsetzen(await auspacken(code), false); }
+  catch (e) { alert('Der gespeicherte Plan ließ sich nicht lesen.'); return; }
+  // Aus der Adresszeile nehmen, sonst holt ein Neuladen den alten Stand zurueck
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  if (drucken) { await document.fonts.ready; setTimeout(() => window.print(), 400); }
+}
+if (location.hash === '#beispiel') { document.body.classList.add('beispiel'); setzen(BEISPIEL); }
+else if (codeAus(location.hash)) ausAdresse();
+else rechne();
+</script>
+</body>
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BKS Trainingsplan</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#3D4BA7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Trainingsplan">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="schriften.css">
+<style>
+/* ===================================================================
+   BKS Bewegungszentrum — Trainingsplan fuers Handy
+   Fassung 16.10.2026
+
+   Ohne Konto und ohne Datenbank:
+   - Der Plan steckt im Link selbst, hinter dem #. Dieser Teil einer
+     Adresse wird nie an den Server geschickt, GitHub sieht ihn nicht.
+     Erzeugt wird der Link am PC in ..\trainingsplan.html oder am
+     Tablet in ..\tablet.html ("QR-Code fuers Handy"). Packen,
+     Auspacken und Skizzen kommen aus ..\kern.js.
+   - Alles, was das Mitglied eintraegt (neues Gewicht, geaenderte
+     Uebung), liegt nur im Speicher des Browsers auf diesem Handy.
+   - "Sicherung" packt Plan und Verlauf wieder in einen Link: zum
+     Umzug auf ein neues Handy oder zum Schicken an den Trainer.
+
+   Neuer Plan vom Trainer: Uebungen werden ueber Abschnitt und Namen
+   wiedererkannt, ihr Gewichtsverlauf bleibt. Uebungen, die nicht mehr
+   im Plan stehen, wandern mit Verlauf ins Archiv.
+
+   iPhone: Eine App auf dem Home-Bildschirm hat einen eigenen Speicher,
+   getrennt von Safari. Deshalb gibt es "Link einfuegen" - damit kommt
+   ein neuer Plan oder eine Sicherung auch dorthin. Safari loescht
+   Eintraege von Seiten, die man sieben Tage nicht nutzt; auf dem
+   Home-Bildschirm gilt das nicht. Daher der Hinweis-Streifen.
+   =================================================================== */
+:root{
+  --indigo:#3D4BA7; --hellblau:#5894D5; --tinte:#12141c; --text2:#3a3f4c; --grau:#6a7080;
+  --linie:#e3e6ee; --feld:#eef2fa; --grund:#f4f6fb; --weiss:#fff; --gut:#2e7d4f;
+  --unten:env(safe-area-inset-bottom, 0px);
+}
+*{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html{ background:var(--grund); }
+body{ font-family:'Inter',system-ui,-apple-system,sans-serif; color:var(--tinte); font-size:16px; line-height:1.45;
+  max-width:560px; margin:0 auto; min-height:100vh; padding-bottom:calc(76px + var(--unten)); font-synthesis:none; }
+.serif{ font-family:'Instrument Serif',Georgia,serif; font-style:italic; font-weight:400; color:var(--indigo); letter-spacing:-.01em; }
+button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
+input, textarea{ font:inherit; color:inherit; }
+
+/* Kopf */
+.kopf{ padding:18px 18px 8px; }
+.kopf img{ height:34px; display:block; }
+.titel{ padding:6px 18px 4px; }
+.titel h1{ font-size:30px; font-weight:300; letter-spacing:-.03em; line-height:1.1; }
+.titel h1 .serif{ font-size:35px; }
+.titel p{ color:var(--grau); font-size:14px; margin-top:4px; }
+
+/* Hinweis-Streifen (iPhone in Safari) */
+.streifen{ margin:12px 14px 0; background:var(--feld); border-radius:12px; padding:12px 14px; font-size:14px;
+  display:flex; gap:10px; align-items:flex-start; }
+.streifen p{ flex:1; }
+.streifen button{ font-weight:600; color:var(--indigo); white-space:nowrap; }
+
+/* Abschnitte und Uebungen */
+.abschnitt{ margin-top:22px; }
+.abschnitt h2{ display:flex; align-items:center; gap:10px; padding:0 18px 8px; font-size:13px; font-weight:600;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--grau); }
+.abschnitt h2::before{ content:""; width:12px; height:12px; border-radius:3px; background:var(--akzent); }
+.a-c, .a-k{ --akzent:var(--hellblau); }
+.a-g, .a-f{ --akzent:var(--indigo); }
+.uebung{ background:var(--weiss); margin:0 14px 10px; border-radius:14px; padding:14px 14px 10px 16px;
+  border-left:4px solid var(--akzent); box-shadow:0 1px 2px rgba(18,20,28,.06); }
+.u-kopf{ display:flex; gap:12px; align-items:flex-start; justify-content:space-between; }
+.u-kopf h3{ font-size:17px; font-weight:600; line-height:1.3; letter-spacing:-.01em; white-space:pre-line; }
+.werte{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.werte span{ background:var(--grund); border-radius:999px; padding:3px 10px; font-size:14px; color:var(--text2);
+  font-variant-numeric:tabular-nums; }
+.notiz{ margin-top:9px; font-size:15px; color:var(--text2); white-space:pre-line; }
+/* Skizze vom Tablet */
+.skizze{ margin-top:10px; background:var(--grund); border-radius:10px; padding:6px; }
+.skizze svg{ display:block; width:100%; height:auto; aspect-ratio:256 / 121; }
+.u-fuss{ display:flex; justify-content:flex-end; margin-top:4px; }
+.u-fuss button{ font-size:14px; color:var(--grau); padding:6px 2px 4px 12px; }
+.gewicht{ flex:none; text-align:right; background:var(--feld); border-radius:12px; padding:7px 11px; min-width:92px; }
+.gewicht b{ display:block; font-size:19px; font-weight:600; color:var(--indigo); font-variant-numeric:tabular-nums; line-height:1.2; }
+.gewicht small{ display:block; font-size:12px; color:var(--grau); }
+.gewicht small.plus{ color:var(--gut); font-weight:600; }
+.gewicht.leer b{ font-size:14px; font-weight:600; }
+.dazu{ display:block; margin:0 14px; padding:10px 16px; font-size:14px; color:var(--indigo); font-weight:500; }
+
+/* Verlauf */
+.karte{ background:var(--weiss); margin:12px 14px; border-radius:14px; padding:16px; box-shadow:0 1px 2px rgba(18,20,28,.06); }
+.bilanz{ font-size:22px; font-weight:300; letter-spacing:-.02em; line-height:1.25; }
+.bilanz b{ font-weight:600; color:var(--indigo); }
+.leise{ color:var(--grau); font-size:14px; }
+.v-zeile{ display:grid; grid-template-columns:1fr auto; gap:2px 12px; align-items:baseline; }
+.v-zeile h3{ font-size:16px; font-weight:600; white-space:pre-line; }
+.v-zeile .zahl{ font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
+.v-zeile .zahl.plus{ color:var(--gut); }
+.v-zeile .weg{ grid-column:1 / -1; font-size:14px; color:var(--grau); font-variant-numeric:tabular-nums; }
+.kurve{ display:block; width:100%; height:64px; margin-top:8px; }
+h2.zwischen{ padding:18px 18px 0; font-size:13px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--grau); }
+
+/* Mehr */
+.karte h3{ font-size:17px; font-weight:600; margin-bottom:6px; }
+.karte p + p, .karte p + ol, .karte ol + p{ margin-top:8px; }
+.karte ol{ padding-left:20px; }
+.karte li + li{ margin-top:4px; }
+.knopf{ display:inline-block; margin-top:12px; background:var(--indigo); color:#fff; border-radius:10px; padding:11px 16px; font-weight:600; font-size:15px; }
+.knopf.zweit{ background:var(--feld); color:var(--indigo); }
+.knopf.gefahr{ background:#fdecec; color:#b3261e; }
+textarea.link{ width:100%; margin-top:10px; border:1px solid var(--linie); border-radius:10px; padding:10px; font-size:14px; min-height:64px; }
+
+/* Leerer Zustand */
+.leer-kasten{ padding:30px 18px; }
+.leer-kasten h1{ font-size:32px; font-weight:300; letter-spacing:-.03em; }
+.leer-kasten p{ margin-top:12px; color:var(--text2); }
+
+/* Untere Leiste */
+.tabs{ position:fixed; left:0; right:0; bottom:0; background:rgba(255,255,255,.96); border-top:1px solid var(--linie);
+  display:flex; justify-content:center; padding-bottom:var(--unten); z-index:4; -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.tabs button{ flex:1; max-width:187px; padding:10px 0 12px; font-size:13px; font-weight:500; color:var(--grau);
+  display:flex; flex-direction:column; align-items:center; gap:3px; }
+.tabs button svg{ width:24px; height:24px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.tabs button.an{ color:var(--indigo); }
+
+/* Blatt von unten (Gewicht, Bearbeiten) */
+.sheet{ position:fixed; inset:0; background:rgba(18,20,28,.38); z-index:10; display:none; align-items:flex-end; justify-content:center; }
+.sheet.offen{ display:flex; }
+.sheet-inhalt{ background:var(--weiss); width:100%; max-width:560px; max-height:92vh; overflow:auto; border-radius:18px 18px 0 0;
+  padding:18px 18px calc(22px + var(--unten)); }
+.sheet-inhalt h3{ font-size:20px; font-weight:600; letter-spacing:-.01em; white-space:pre-line; padding-right:40px; }
+.sheet-kopf{ position:relative; }
+.sheet-kopf .schliessen{ position:absolute; right:-6px; top:-6px; width:40px; height:40px; font-size:26px; color:var(--grau); line-height:1; }
+.stepper{ display:flex; align-items:center; gap:10px; margin-top:18px; }
+.stepper button{ width:58px; height:52px; border-radius:12px; background:var(--feld); color:var(--indigo); font-size:17px; font-weight:600; flex:none; }
+.stepper label{ flex:1; display:flex; align-items:baseline; justify-content:center; gap:6px; border:1.5px solid var(--linie); border-radius:12px; height:52px; padding:0 10px; }
+.stepper input{ width:100%; min-width:0; border:0; outline:0; text-align:right; font-size:24px; font-weight:600; color:var(--indigo); background:none; padding-top:9px; font-variant-numeric:tabular-nums; }
+.stepper label span{ font-size:16px; color:var(--grau); }
+.haupt-knopf{ width:100%; margin-top:14px; background:var(--indigo); color:#fff; border-radius:12px; padding:14px; font-size:16px; font-weight:600; }
+.liste{ list-style:none; margin-top:8px; }
+.liste li{ display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--linie); font-size:15px; font-variant-numeric:tabular-nums; }
+.liste li span:last-child{ color:var(--grau); font-size:13px; }
+h4{ margin-top:22px; font-size:13px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--grau); }
+.formular label{ display:block; margin-top:14px; font-size:13px; font-weight:600; color:var(--grau); }
+.formular input, .formular textarea{ display:block; width:100%; margin-top:5px; border:1.5px solid var(--linie); border-radius:10px; padding:10px 12px; font-size:16px; background:#fff; }
+.formular textarea{ min-height:96px; resize:vertical; }
+.formular .zwei{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.formular input:focus, .formular textarea:focus, .stepper label:focus-within{ border-color:var(--indigo); outline:0; }
+.textknopf{ margin-top:14px; color:#b3261e; font-size:15px; padding:6px 0; }
+
+/* Meldung */
+.toast{ position:fixed; left:50%; bottom:calc(88px + var(--unten)); transform:translateX(-50%) translateY(20px); opacity:0;
+  background:var(--tinte); color:#fff; border-radius:12px; padding:11px 16px; font-size:15px; max-width:calc(100% - 28px);
+  transition:opacity .2s, transform .2s; z-index:20; pointer-events:none; }
+.toast.an{ opacity:1; transform:translateX(-50%) translateY(0); }
+.fuss{ text-align:center; color:var(--grau); font-size:12px; padding:22px 18px 8px; }
+</style>
+</head>
+<body>
+
+<header class="kopf"><img src="logo.png" alt="Bewegungszentrum für Körperwohl und Squash"></header>
+<main id="ansicht"></main>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="plan"><svg viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M9 8.5h6M9 12h6M9 15.5h4"/></svg>Plan</button>
+  <button data-tab="verlauf"><svg viewBox="0 0 24 24"><path d="M4 19.5h16"/><path d="M5 16l4.5-5 3.5 3 6-7"/><path d="M15 7h4v4"/></svg>Verlauf</button>
+  <button data-tab="mehr"><svg viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></svg>Mehr</button>
+</nav>
+
+<div class="sheet" id="sheet"><div class="sheet-inhalt" id="sheet-inhalt"></div></div>
+<div class="toast" id="toast"></div>
+
+<noscript><p style="padding:18px">Bitte JavaScript einschalten, sonst lässt sich der Plan nicht anzeigen.</p></noscript>
+
+<script src="../kern.js"></script>
+<script>
+const SPEICHER = 'bks-trainingsplan';
+const ABSCHNITTE = [['c', 'Cardio'], ['g', 'Geräte'], ['k', 'Koordination'], ['f', 'Freie Übungen']];
+const MIT_GEWICHT = new Set(['g', 'f']);
+
+/* ---------- Hilfen ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const norm = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+const zahl = w => { const t = String(w == null ? '' : w).trim().replace(',', '.'); return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : null; };
+const deZahl = n => n.toLocaleString('de-DE', { maximumFractionDigits: 2 });
+const mitKg = w => zahl(w) !== null ? deZahl(zahl(w)) + ' kg' : String(w);
+const zwei = n => String(n).padStart(2, '0');
+const heuteIso = () => { const d = new Date(); return d.getFullYear() + '-' + zwei(d.getMonth() + 1) + '-' + zwei(d.getDate()); };
+const datumDe = (iso, kurz) => { const [j, m, t] = iso.split('-'); return kurz ? t + '.' + m + '.' : t + '.' + m + '.' + j; };
+const isoAus = de => {
+  const m = String(de || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+  if (!m) return heuteIso();
+  return (m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + zwei(m[2]) + '-' + zwei(m[1]);
+};
+const neueId = () => Math.random().toString(36).slice(2, 9);
+function streuwert(s){ let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+
+let toastZeit;
+function toast(text){
+  const t = $('#toast'); t.textContent = text; t.classList.add('an');
+  clearTimeout(toastZeit); toastZeit = setTimeout(() => t.classList.remove('an'), 3200);
+}
+
+/* ---------- Link packen und auspacken: ../kern.js (gleich fuer PC, Tablet und Handy) ---------- */
+const { packen, auspacken } = Kern;
+const ausLink = Kern.codeAus;
+
+/* ---------- Speicher ---------- */
+let stand = null;
+function laden(){ try { return JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { return null; } }
+function speichern(){
+  try { localStorage.setItem(SPEICHER, JSON.stringify(stand)); return true; }
+  catch (e) { toast('Speichern ging nicht. Ist der private Modus an?'); return false; }
+}
+const uebung = id => stand.ex.find(e => e.id === id);
+const aktuell = e => e.kg.length ? e.kg[e.kg.length - 1] : null;
+
+/* ---------- Plan oder Sicherung uebernehmen ---------- */
+async function uebernehmen(code){
+  let daten;
+  try { daten = await auspacken(code); }
+  catch (e) {
+    toast(typeof DecompressionStream === 'undefined'
+      ? 'Dieser Browser ist zu alt für den Plan. Bitte das Handy aktualisieren.'
+      : 'Der Link ist unvollständig. Bitte noch einmal ganz kopieren.');
+    return false;
+  }
+  if (daten.t === 'stand') return sicherungUebernehmen(daten);
+  if (daten.t === 'plan') return planUebernehmen(daten, code);
+  return false;
+}
+
+function planUebernehmen(daten, code){
+  const id = streuwert(code);
+  if (stand && stand.importiert.includes(id)) return false;   // diesen Plan gibt es hier schon
+  if (stand && stand.plan.n && daten.n && norm(stand.plan.n) !== norm(daten.n) &&
+      !confirm('Dieser Plan ist für ' + daten.n + '. Er ersetzt den Plan von ' + stand.plan.n + ' auf diesem Handy. Fortfahren?')) return false;
+  const datum = isoAus(daten.d);
+  const alt = stand ? stand.ex.slice() : [];
+  const altArchiv = stand ? stand.archiv.slice() : [];
+  let verlaufBleibt = false;
+  const neu = [];
+  // Wiedererkennen ueber Abschnitt und Namen - erst im Plan, dann im Archiv (Uebung kommt zurueck)
+  const finde = (liste, s, name) => { const i = liste.findIndex(e => e.s === s && norm(e.name) === norm(name)); return i >= 0 ? liste.splice(i, 1)[0] : null; };
+  ABSCHNITTE.forEach(([s]) => (daten.x[s] || []).forEach(([name, serien, dauer, pause, kg, notiz, skizze]) => {
+    const vorher = finde(alt, s, name) || finde(altArchiv, s, name);
+    const verlauf = vorher ? vorher.kg.slice() : [];
+    if (verlauf.length) verlaufBleibt = true;
+    // Neues Gewicht vom Trainer kommt dazu, wenn es vom zuletzt eingetragenen abweicht
+    if (kg && !verlauf.some(v => v.d === datum && norm(v.w) === norm(kg)) && (!verlauf.length || norm(verlauf[verlauf.length - 1].w) !== norm(kg)))
+      verlauf.push({ d: datum, w: kg, q: 't' });
+    verlauf.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+    neu.push({ id: vorher ? vorher.id : neueId(), s, name, serien, dauer, pause, notiz, skizze: skizze || '',
+               kg: verlauf.map(({ d, w, q }) => ({ d, w, q })) });
+  }));
+  // Was nicht mehr im Plan steht, behaelt seinen Verlauf im Archiv
+  const archiv = altArchiv.concat(alt.filter(e => e.kg.length).map(e => Object.assign({}, e, { bis: datum })));
+  stand = { v: 1, plan: { n: daten.n || '', d: datum, b: daten.b || '' }, ex: neu, archiv,
+            importiert: (stand ? stand.importiert : []).concat(id) };
+  speichern();
+  toast('Plan vom ' + datumDe(datum) + ' übernommen.' + (verlaufBleibt ? ' Ihr Verlauf bleibt erhalten.' : ''));
+  return true;
+}
+
+function sicherungUebernehmen(daten){
+  // Eine Sicherung soll nicht bei jedem Oeffnen erneut fragen: aus der Adresszeile nehmen
+  if (ausLink(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+  if (stand && !confirm('Die Sicherung ersetzt alles, was auf diesem Handy steht. Fortfahren?')) return false;
+  stand = daten.stand;
+  speichern();
+  toast('Sicherung übernommen.');
+  return true;
+}
+
+/* ---------- Ansichten ---------- */
+let tab = 'plan';
+function zeige(neu){
+  if (neu) tab = neu;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('an', b.dataset.tab === tab));
+  $('#tabs').style.display = stand ? '' : 'none';
+  $('#ansicht').innerHTML = !stand ? leerAnsicht() : tab === 'verlauf' ? verlaufAnsicht() : tab === 'mehr' ? mehrAnsicht() : planAnsicht();
+  window.scrollTo(0, 0);
+}
+
+const istIphone = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const alsApp = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function streifenZeigen(){ try { return istIphone && !alsApp && !localStorage.getItem(SPEICHER + '.streifen'); } catch (e) { return false; } }
+
+function leerAnsicht(){
+  return '<div class="leer-kasten"><h1>Ihr <span class="serif">Trainingsplan</span></h1>' +
+    '<p>Ihren Plan bekommen Sie bei uns im Bewegungszentrum als QR-Code oder als Link. Öffnen Sie ihn einfach auf diesem Handy.</p>' +
+    '<p>Sie haben den Link schon kopiert, zum Beispiel aus WhatsApp?</p>' +
+    '<button class="knopf" data-aktion="einfuegen">Link einfügen</button>' +
+    '<textarea class="link" id="link-feld" placeholder="Oder den Link hier hineinkopieren"></textarea>' +
+    '<button class="knopf zweit" data-aktion="feld-uebernehmen">Übernehmen</button></div>' + fuss();
+}
+
+function wertChips(e){
+  const c = [];
+  const wdh = e.dauer ? (zahl(e.dauer) !== null ? e.dauer + ' Wdh' : e.dauer) : '';
+  if (e.serien && wdh) c.push(e.serien + ' × ' + wdh);
+  else if (e.serien) c.push(e.serien + ' Serien');
+  else if (wdh) c.push(wdh);
+  if (e.pause) c.push('Pause ' + e.pause);
+  return c.length ? '<div class="werte">' + c.map(t => '<span>' + esc(t) + '</span>').join('') + '</div>' : '';
+}
+
+function gewichtKnopf(e){
+  if (!MIT_GEWICHT.has(e.s) && !e.kg.length) return '';
+  const a = aktuell(e);
+  if (!a) return '<button class="gewicht leer" data-aktion="gewicht" data-id="' + e.id + '"><b>Gewicht<br>eintragen</b></button>';
+  const start = e.kg[0], ns = zahl(start.w), na = zahl(a.w);
+  let unter = 'seit ' + datumDe(a.d, true);
+  if (e.kg.length > 1 && ns !== null && na !== null && na !== ns)
+    unter = '<small class="' + (na > ns ? 'plus' : '') + '">' + (na > ns ? '+' : '−') + deZahl(Math.abs(na - ns)) + ' kg seit Start</small>';
+  else unter = '<small>' + unter + '</small>';
+  return '<button class="gewicht" data-aktion="gewicht" data-id="' + e.id + '"><b>' + esc(mitKg(a.w)) + '</b>' + unter + '</button>';
+}
+
+function planAnsicht(){
+  const p = stand.plan;
+  let h = '<div class="titel"><h1>Ihr <span class="serif">Trainingsplan</span></h1><p>' +
+    esc([p.n, 'Stand ' + datumDe(p.d), p.b ? 'betreut von ' + p.b : ''].filter(Boolean).join(' · ')) + '</p></div>';
+  if (streifenZeigen()) h += '<div class="streifen"><p>Damit Ihre Einträge dauerhaft bleiben: den Plan als App auf den Home-Bildschirm legen.</p>' +
+    '<button data-aktion="anleitung">So geht’s</button><button data-aktion="streifen-weg" aria-label="Ausblenden">✕</button></div>';
+  ABSCHNITTE.forEach(([s, titel]) => {
+    const liste = stand.ex.filter(e => e.s === s);
+    h += '<section class="abschnitt a-' + s + '"><h2>' + titel + '</h2>';
+    liste.forEach(e => {
+      h += '<article class="uebung"><div class="u-kopf"><h3>' + esc(e.name) + '</h3>' + gewichtKnopf(e) + '</div>' +
+        wertChips(e) + (e.skizze ? '<div class="skizze">' + Kern.skizzeSvg(e.skizze) + '</div>' : '') +
+        (e.notiz ? '<p class="notiz">' + esc(e.notiz) + '</p>' : '') +
+        '<div class="u-fuss"><button data-aktion="bearbeiten" data-id="' + e.id + '">Ändern</button></div></article>';
+    });
+    h += '<button class="dazu" data-aktion="neu" data-s="' + s + '">+ Übung hinzufügen</button></section>';
+  });
+  return h + fuss();
+}
+
+// Kleine Kurve fuer den Gewichtsverlauf
+function kurve(eintraege){
+  const pkt = eintraege.map(v => zahl(v.w)).filter(n => n !== null);
+  if (pkt.length < 2) return '';
+  const min = Math.min(...pkt), max = Math.max(...pkt), sp = max - min || 1;
+  const B = 300, H = 64, r = 6;
+  const xy = pkt.map((n, i) => [r + i * (B - 2 * r) / (pkt.length - 1), H - r - (n - min) / sp * (H - 2 * r)]);
+  const linie = xy.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  return '<svg class="kurve" viewBox="0 0 ' + B + ' ' + H + '" preserveAspectRatio="none">' +
+    '<polygon points="' + r + ',' + H + ' ' + linie + ' ' + (B - r) + ',' + H + '" fill="#5894D5" opacity=".14"/>' +
+    '<polyline points="' + linie + '" fill="none" stroke="#3D4BA7" stroke-width="2.2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>';
+}
+
+function verlaufZeile(e){
+  const start = e.kg[0], a = aktuell(e), ns = zahl(start.w), na = zahl(a.w);
+  let diff = '';
+  if (ns !== null && na !== null && na !== ns)
+    diff = '<span class="zahl' + (na > ns ? ' plus' : '') + '">' + (na > ns ? '+' : '−') + deZahl(Math.abs(na - ns)) + ' kg' +
+      (ns > 0 ? ' (' + (na > ns ? '+' : '−') + Math.round(Math.abs(na - ns) / ns * 100) + ' %)' : '') + '</span>';
+  else diff = '<span class="zahl">' + esc(mitKg(a.w)) + '</span>';
+  const weg = e.kg.length > 1 ? esc(mitKg(start.w)) + ' am ' + datumDe(start.d, true) + ' → ' + esc(mitKg(a.w)) + ' am ' + datumDe(a.d, true)
+                              : 'seit ' + datumDe(start.d);
+  return '<div class="karte"><div class="v-zeile"><h3>' + esc(e.name) + '</h3>' + diff + '<span class="weg">' + weg + '</span></div>' + kurve(e.kg) + '</div>';
+}
+
+function verlaufAnsicht(){
+  const mit = stand.ex.filter(e => e.kg.length);
+  const vergleichbar = mit.filter(e => e.kg.length > 1 && zahl(e.kg[0].w) !== null && zahl(aktuell(e).w) !== null);
+  const mehr = vergleichbar.filter(e => zahl(aktuell(e).w) > zahl(e.kg[0].w)).length;
+  const erster = mit.reduce((d, e) => !d || e.kg[0].d < d ? e.kg[0].d : d, '');
+  let h = '<div class="titel"><h1>Ihr <span class="serif">Verlauf</span></h1></div>';
+  if (!mit.length) return h + '<div class="karte"><p>Sobald Gewichte eingetragen sind, sehen Sie hier, wie sie sich entwickeln.</p></div>' + fuss();
+  h += '<div class="karte"><p class="bilanz">' + (mehr
+      ? 'Bei <b>' + mehr + ' von ' + mit.length + '</b> Übungen trainieren Sie heute mit mehr Gewicht als am Anfang.'
+      : 'Ihre Startgewichte stehen. Jedes neue Gewicht erscheint hier im Verlauf.') +
+    '</p><p class="leise" style="margin-top:6px">Erster Eintrag am ' + datumDe(erster) + '</p></div>';
+  mit.forEach(e => { h += verlaufZeile(e); });
+  if (stand.archiv.length) {
+    h += '<h2 class="zwischen">Nicht mehr im Plan</h2>';
+    stand.archiv.forEach(e => { h += verlaufZeile(e); });
+  }
+  return h + fuss();
+}
+
+function anleitungHtml(){
+  const iphone = '<p><b>iPhone:</b></p><ol><li>Diese Seite in Safari öffnen.</li><li>Unten auf das Teilen-Symbol tippen (Quadrat mit Pfeil nach oben).</li>' +
+    '<li>„Zum Home-Bildschirm“ wählen und „Hinzufügen“ tippen.</li><li>Ab jetzt den Plan über das neue Symbol öffnen.</li></ol>';
+  const android = '<p><b>Android:</b></p><ol><li>Diese Seite in Chrome öffnen.</li><li>Oben rechts auf die drei Punkte tippen.</li>' +
+    '<li>„Zum Startbildschirm hinzufügen“ oder „App installieren“ wählen.</li></ol>';
+  return istIphone ? iphone + android : android + iphone;
+}
+
+function mehrAnsicht(){
+  return '<div class="titel"><h1>Mehr</h1></div>' +
+    '<div class="karte"><h3>Als App aufs Handy</h3><p>Dann ist der Plan mit einem Tipp da, und Ihre Einträge bleiben dauerhaft erhalten.</p>' + anleitungHtml() + '</div>' +
+    '<div class="karte"><h3>Neuen Plan einfügen</h3><p>Hat Ihr Trainer den Plan angepasst, bekommen Sie einen neuen Link. Öffnen Sie ihn oder fügen Sie ihn hier ein. Ihr Verlauf bleibt erhalten.</p>' +
+      '<button class="knopf" data-aktion="einfuegen">Link einfügen</button>' +
+      '<textarea class="link" id="link-feld" placeholder="Oder den Link hier hineinkopieren"></textarea>' +
+      '<button class="knopf zweit" data-aktion="feld-uebernehmen">Übernehmen</button></div>' +
+    '<div class="karte"><h3>Sicherung</h3><p>Packt Ihren Plan samt Verlauf in einen Link. Damit holen Sie alles auf ein neues Handy, oder Sie schicken ihn Ihrem Trainer zur nächsten Anpassung.</p>' +
+      '<button class="knopf" data-aktion="sichern">Sicherungslink teilen</button></div>' +
+    '<div class="karte"><h3>Ihre Daten</h3><p>Ihr Plan und Ihre Einträge liegen nur auf diesem Handy. Es gibt kein Konto und keine Datenbank. Der Plan steckt im Link selbst, der Server, der diese Seite ausliefert, bekommt ihn nicht zu sehen.</p>' +
+      '<button class="knopf gefahr" data-aktion="loeschen">Alles auf diesem Handy löschen</button></div>' + fuss();
+}
+
+const fuss = () => '<p class="fuss">BKS Bewegungszentrum · Felsenstraße 7, Magstadt · 07159 45151</p>';
+
+/* ---------- Blatt von unten ---------- */
+function blatt(html){ $('#sheet-inhalt').innerHTML = html; $('#sheet').classList.add('offen'); }
+function blattZu(){ $('#sheet').classList.remove('offen'); }
+const blattKopf = titel => '<div class="sheet-kopf"><h3>' + esc(titel) + '</h3><button class="schliessen" data-aktion="zu" aria-label="Schließen">×</button></div>';
+
+function gewichtBlatt(id){
+  const e = uebung(id), a = aktuell(e);
+  const liste = e.kg.slice().reverse().map(v => '<li><span>' + esc(mitKg(v.w)) + '</span><span>' + datumDe(v.d) +
+    (v.q === 't' ? ' · Trainer' : '') + '</span></li>').join('');
+  blatt(blattKopf(e.name) +
+    '<div class="stepper"><button data-aktion="schritt" data-d="-2.5">−2,5</button>' +
+    '<label><input id="kg" inputmode="decimal" autocomplete="off" value="' + esc(a ? a.w : '') + '" placeholder="0"><span>kg</span></label>' +
+    '<button data-aktion="schritt" data-d="2.5">+2,5</button></div>' +
+    '<button class="haupt-knopf" data-aktion="gewicht-sichern" data-id="' + id + '">Neues Gewicht speichern</button>' +
+    (e.kg.length ? '<h4>Verlauf</h4>' + kurve(e.kg) + '<ul class="liste">' + liste + '</ul>' +
+      '<button class="textknopf" data-aktion="gewicht-zurueck" data-id="' + id + '">Letzten Eintrag löschen</button>' : ''));
+}
+
+function bearbeitenBlatt(id, s){
+  const e = id ? uebung(id) : { name:'', serien:'', dauer:'', pause:'', notiz:'', kg:[], s };
+  const mitKgFeld = !id && MIT_GEWICHT.has(s);
+  blatt(blattKopf(id ? 'Übung ändern' : 'Neue Übung') +
+    '<div class="formular">' +
+    '<label>Übung oder Gerät<input id="f-name" value="' + esc(e.name) + '"></label>' +
+    '<div class="zwei"><label>Serien<input id="f-serien" inputmode="numeric" value="' + esc(e.serien) + '"></label>' +
+    '<label>Wdh / Dauer<input id="f-dauer" value="' + esc(e.dauer) + '"></label>' +
+    '<label>Pause<input id="f-pause" value="' + esc(e.pause) + '"></label></div>' +
+    (mitKgFeld ? '<label>Startgewicht in kg<input id="f-kg" inputmode="decimal"></label>' : '') +
+    '<label>Hinweis<textarea id="f-notiz">' + esc(e.notiz) + '</textarea></label>' +
+    '<button class="haupt-knopf" data-aktion="bearbeiten-sichern" data-id="' + (id || '') + '" data-s="' + (s || '') + '">Speichern</button>' +
+    (id ? '<button class="textknopf" data-aktion="entfernen" data-id="' + id + '">Übung aus dem Plan nehmen</button>' : '') +
+    '</div>');
+}
+
+/* ---------- Aktionen ---------- */
+async function sicherungTeilen(){
+  const link = location.origin + location.pathname + '#p=' + await packen({ t: 'stand', v: 1, stand });
+  const titel = 'Trainingsplan-Sicherung' + (stand.plan.n ? ' ' + stand.plan.n : '');
+  if (navigator.share) { try { await navigator.share({ title: titel, url: link }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(link); toast('Sicherungslink kopiert.'); }
+  catch (e) { prompt('Sicherungslink zum Kopieren:', link); }
+}
+
+async function linkVerarbeiten(text){
+  const code = ausLink(text);
+  if (!code) { toast('Darin steckt kein Trainingsplan-Link.'); return; }
+  if (await uebernehmen(code)) zeige('plan');
+  else if (stand) toast('Diesen Plan haben Sie schon.');
+}
+
+document.addEventListener('click', async ev => {
+  const t = ev.target.closest('[data-aktion], [data-tab]');
+  if (ev.target.id === 'sheet') { blattZu(); return; }
+  if (!t) return;
+  if (t.dataset.tab) { zeige(t.dataset.tab); return; }
+  const id = t.dataset.id;
+  switch (t.dataset.aktion) {
+    case 'zu': blattZu(); break;
+    case 'gewicht': gewichtBlatt(id); break;
+    case 'schritt': {
+      const f = $('#kg'), n = zahl(f.value) || 0, neu = Math.max(0, n + parseFloat(t.dataset.d));
+      f.value = deZahl(neu); break;
+    }
+    case 'gewicht-sichern': {
+      const w = $('#kg').value.trim(); if (!w) { blattZu(); break; }
+      const e = uebung(id), heute = heuteIso(), a = aktuell(e);
+      if (a && norm(a.w) === norm(w)) { blattZu(); toast('Das Gewicht ist unverändert.'); break; }
+      // Pro Tag ein Eintrag vom Mitglied: ein zweiter am selben Tag ersetzt den ersten
+      if (a && a.d === heute && a.q === 'm') a.w = w; else e.kg.push({ d: heute, w, q: 'm' });
+      speichern(); blattZu(); zeige(); toast(mitKg(w) + ' gespeichert.'); break;
+    }
+    case 'gewicht-zurueck': {
+      const e = uebung(id);
+      if (e.kg.length && confirm('Den Eintrag vom ' + datumDe(aktuell(e).d) + ' löschen?')) { e.kg.pop(); speichern(); blattZu(); zeige(); }
+      break;
+    }
+    case 'bearbeiten': bearbeitenBlatt(id); break;
+    case 'neu': bearbeitenBlatt(null, t.dataset.s); break;
+    case 'bearbeiten-sichern': {
+      const wert = k => ($('#f-' + k) ? $('#f-' + k).value.trim() : '');
+      if (!wert('name')) { toast('Bitte einen Namen für die Übung eintragen.'); break; }
+      if (id) Object.assign(uebung(id), { name: wert('name'), serien: wert('serien'), dauer: wert('dauer'), pause: wert('pause'), notiz: wert('notiz') });
+      else stand.ex.push({ id: neueId(), s: t.dataset.s, name: wert('name'), serien: wert('serien'), dauer: wert('dauer'), pause: wert('pause'),
+                           notiz: wert('notiz'), kg: wert('kg') ? [{ d: heuteIso(), w: wert('kg'), q: 'm' }] : [] });
+      speichern(); blattZu(); zeige(); break;
+    }
+    case 'entfernen': {
+      const e = uebung(id);
+      if (!confirm('„' + e.name + '“ aus dem Plan nehmen? Der Gewichtsverlauf bleibt unter „Verlauf“ erhalten.')) break;
+      stand.ex = stand.ex.filter(x => x.id !== id);
+      if (e.kg.length) stand.archiv.push(Object.assign({}, e, { bis: heuteIso() }));
+      speichern(); blattZu(); zeige(); break;
+    }
+    case 'anleitung': blatt(blattKopf('Als App aufs Handy') + '<div style="margin-top:10px">' + anleitungHtml() + '</div>'); break;
+    case 'streifen-weg': try { localStorage.setItem(SPEICHER + '.streifen', '1'); } catch (e) {} zeige(); break;
+    case 'einfuegen': {
+      let text = '';
+      try { text = await navigator.clipboard.readText(); } catch (e) {}
+      if (text) linkVerarbeiten(text); else { $('#link-feld').focus(); toast('Bitte den Link ins Feld darunter kopieren.'); }
+      break;
+    }
+    case 'feld-uebernehmen': linkVerarbeiten($('#link-feld').value); break;
+    case 'sichern': sicherungTeilen(); break;
+    case 'loeschen':
+      if (confirm('Plan und Verlauf von diesem Handy löschen? Das lässt sich nicht rückgängig machen.')) {
+        stand = null; try { localStorage.removeItem(SPEICHER); } catch (e) {} zeige('plan');
+      }
+      break;
+  }
+});
+
+/* ---------- Start ---------- */
+// Der Link bleibt in der Adresszeile stehen: Legt jemand die Seite danach auf den Home-Bildschirm,
+// nimmt das iPhone ihn mit und die App holt sich den Plan in ihren eigenen Speicher.
+async function start(){
+  stand = laden();
+  const code = ausLink(location.hash);
+  if (code) await uebernehmen(code);
+  zeige('plan');
+}
+addEventListener('hashchange', start);
+start();
+</script>
+</body>
+</html>
