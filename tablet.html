@@ -20,6 +20,8 @@
      Feld "Plan" fuer den Namen, "Weiterer Plan" legt den naechsten mit
      gleichem Mitgliedsnamen an. Jeder Plan hat eigene Fassungen und
      einen eigenen QR-Code; das Handy schaltet zwischen ihnen um.
+     Im QR-Dialog "Alle ... Plaene in einem Code": bei der Einweisung
+     reicht dann ein Scan und das iPhone bekommt nur ein Symbol.
    - "Speichern": legt den Plan auf diesem Tablet ab (Planliste).
      Beim Check-up: "Plaene" -> Name suchen -> oeffnen -> aendern ->
      speichern. Mit neuem Datum entsteht eine neue Fassung, die alte
@@ -197,6 +199,7 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
   <p class="klein" id="qr-info"></p>
   <div class="d-knoepfe">
     <button class="haupt" data-aktion="teilen">Link teilen (z. B. WhatsApp)</button>
+    <button data-aktion="qr-alle" id="b-qr-alle" hidden></button>
     <button data-aktion="zu">Schließen</button>
   </div>
   <p class="klein" style="margin-top:14px">Der Plan steckt im Code selbst. Es wird nichts hochgeladen.</p>
@@ -467,16 +470,45 @@ function einspielen(text){
 
 /* ---------- Aktionen ---------- */
 let teilLink = '';
-async function qrZeigen(){
+
+/* Alle Plaene dieses Mitglieds: der Plan auf dem Bildschirm (auch ungespeichert) plus die
+   zuletzt gespeicherte Fassung jedes anderen Plans mit gleichem Mitgliedsnamen. */
+async function allePlaene(p){
+  const andere = bibLaden().plaene.filter(e => norm(e.n) === norm(p.n) && e.id !== plan.id && norm(e.p) !== norm(p.p));
+  const liste = [p];
+  for (const e of andere) { try { liste.push(await Kern.auspacken(letzte(e).code)); } catch (err) {} }
+  return liste.sort((a, b) => norm(a.p) < norm(b.p) ? -1 : 1);
+}
+// Mehrere Plaene in einem Code; zu lang fuer einen QR-Code -> erst ohne Skizzen
+async function sammelLink(liste){
+  const voll = Kern.BASIS + 'app/#p=' + await Kern.packen({ t:'plaene', v:1, liste });
+  if (voll.length <= Kern.QR_MAX) return { link: voll };
+  const kurz = Kern.BASIS + 'app/#p=' + await Kern.packen({ t:'plaene', v:1, liste: liste.map(Kern.ohneSkizzen) });
+  return { link: kurz, lang: voll, ohneSkizzen: true };
+}
+
+let qrAlle = false;
+async function qrZeigen(alle){
   const p = bereit(); if (!p) return;
-  const r = await Kern.handyLink(p);
+  const liste = p.n && p.p ? await allePlaene(p) : [p];
+  qrAlle = !!alle && liste.length > 1;
+  const r = qrAlle ? await sammelLink(liste) : await Kern.handyLink(p);
   teilLink = r.lang || r.link;
-  const info = [anzahl(p) + (anzahl(p) === 1 ? ' Übung' : ' Übungen') + (p.n ? ' für ' + p.n : ', ohne Namen') + (p.p ? ' · Plan „' + p.p + '“' : '') + '.'];
+  const info = qrAlle
+    ? [liste.length + ' Pläne für ' + p.n + ' in einem Code: ' + liste.map(x => x.p || 'Trainingsplan').join(', ') + '.']
+    : [anzahl(p) + (anzahl(p) === 1 ? ' Übung' : ' Übungen') + (p.n ? ' für ' + p.n : ', ohne Namen') + (p.p ? ' · Plan „' + p.p + '“' : '') + '.'];
   if (r.ohneSkizzen) info.push('Die Skizzen passen nicht mehr in den QR-Code. „Link teilen“ nimmt sie mit.');
   $('#qr').innerHTML = '';
   try { const q = qrcode(0, 'L'); q.addData(r.link); q.make(); $('#qr').innerHTML = q.createSvgTag({ cellSize: 4, margin: 4, scalable: true }); }
-  catch (e) { info.push(typeof qrcode === 'undefined' ? 'Für den QR-Code fehlt die Internetverbindung.' : 'Der Plan ist zu lang für einen QR-Code, bitte den Link teilen.'); }
+  catch (e) {
+    info.push(typeof qrcode === 'undefined' ? 'Für den QR-Code fehlt die Internetverbindung.'
+      : qrAlle ? 'Zusammen sind die Pläne zu lang für einen QR-Code. Bitte jeden Plan einzeln zeigen.' : 'Der Plan ist zu lang für einen QR-Code, bitte den Link teilen.');
+  }
   $('#qr-info').textContent = info.join(' ');
+  // Umschalten zwischen "nur dieser Plan" und "alle Plaene in einem Code", sobald es mehrere gibt
+  const b = $('#b-qr-alle');
+  b.hidden = liste.length < 2;
+  b.textContent = qrAlle ? 'Nur diesen Plan zeigen' : 'Alle ' + liste.length + ' Pläne in einem Code';
   $('#qr-warnung').hidden = Kern.ONLINE || location.hostname === 'localhost';
   $('#d-qr').classList.add('offen');
 }
@@ -505,7 +537,8 @@ document.addEventListener('click', async ev => {
       break;
     }
     case 'speichern': speichern(); break;
-    case 'qr': qrZeigen(); break;
+    case 'qr': qrZeigen(false); break;
+    case 'qr-alle': qrZeigen(!qrAlle); break;
     case 'teilen':
       if (navigator.share) { try { await navigator.share({ title: 'Ihr Trainingsplan', text: 'Ihr Trainingsplan vom BKS Bewegungszentrum', url: teilLink }); } catch (e) {} }
       else { try { await navigator.clipboard.writeText(teilLink); toast('Link kopiert.'); } catch (e) { prompt('Link zum Kopieren:', teilLink); } }

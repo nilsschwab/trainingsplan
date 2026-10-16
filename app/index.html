@@ -40,7 +40,10 @@
 
    iPhone: Eine App auf dem Home-Bildschirm hat einen eigenen Speicher,
    getrennt von Safari. Deshalb gibt es "Link einfuegen" - damit kommt
-   ein neuer Plan oder eine Sicherung auch dorthin. Safari loescht
+   ein neuer Plan oder eine Sicherung auch dorthin. Besser noch: "QR-Code
+   scannen" direkt in der App (seit 16.10.2026), dann landet ein
+   weiterer Plan oder eine neue Fassung gleich im richtigen Speicher.
+   Mehrere Plaene in einem Code (t:'plaene') kommen vom Tablet. Safari loescht
    Eintraege von Seiten, die man sieben Tage nicht nutzt; auf dem
    Home-Bildschirm gilt das nicht. Daher der Hinweis-Streifen.
    =================================================================== */
@@ -86,6 +89,13 @@ input, textarea{ font:inherit; color:inherit; }
 .werte span{ background:var(--grund); border-radius:999px; padding:3px 10px; font-size:14px; color:var(--text2);
   font-variant-numeric:tabular-nums; }
 .notiz{ margin-top:9px; font-size:15px; color:var(--text2); white-space:pre-line; }
+/* QR-Code in der App scannen (wichtig fuers iPhone: der Kamera-Scan oeffnet sonst Safari statt der App) */
+.scan-knopf{ display:inline-flex; align-items:center; gap:8px; margin:12px 14px 0; padding:9px 14px; border-radius:999px;
+  background:var(--feld); color:var(--indigo); font-size:15px; font-weight:600; }
+.scan-knopf svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.scan{ position:relative; margin-top:12px; border-radius:14px; overflow:hidden; background:#000; aspect-ratio:3 / 4; max-height:62vh; }
+.scan video{ display:block; width:100%; height:100%; object-fit:cover; }
+.scan-rahmen{ position:absolute; inset:14% 10%; border:3px solid rgba(255,255,255,.85); border-radius:14px; pointer-events:none; }
 /* Umschalter zwischen mehreren Plaenen (Splits) */
 .planwahl{ display:flex; gap:8px; padding:12px 14px 0; overflow-x:auto; }
 .planwahl button{ flex:none; padding:9px 16px; border-radius:999px; background:var(--weiss); border:1.5px solid var(--linie);
@@ -254,18 +264,46 @@ async function uebernehmen(code){
   }
   if (daten.t === 'stand') return sicherungUebernehmen(daten);
   if (daten.t === 'plan') return planUebernehmen(daten, code);
+  if (daten.t === 'plaene') return plaeneUebernehmen(daten, code);
   return false;
+}
+
+// Ein Plan von einem anderen Mitglied ersetzt (nach Rueckfrage) alles auf diesem Handy
+function mitgliedPruefen(n){
+  const bisher = stand && stand.plaene.find(P => P.plan && P.plan.n);
+  if (bisher && n && norm(bisher.plan.n) !== norm(n)) {
+    if (!confirm('Dieser Plan ist für ' + n + '. Er ersetzt alle Pläne von ' + bisher.plan.n + ' auf diesem Handy. Fortfahren?')) return false;
+    stand = null;
+  }
+  if (!stand) stand = { v: 2, plaene: [], aktiv: '', importiert: [] };
+  return true;
 }
 
 function planUebernehmen(daten, code){
   const id = streuwert(code);
   if (stand && stand.importiert.includes(id)) return false;   // diesen Plan gibt es hier schon
-  const bisher = stand && stand.plaene.find(P => P.plan && P.plan.n);
-  if (bisher && daten.n && norm(bisher.plan.n) !== norm(daten.n)) {
-    if (!confirm('Dieser Plan ist für ' + daten.n + '. Er ersetzt alle Pläne von ' + bisher.plan.n + ' auf diesem Handy. Fortfahren?')) return false;
-    stand = null;
-  }
-  if (!stand) stand = { v: 2, plaene: [], aktiv: '', importiert: [] };
+  if (!mitgliedPruefen(daten.n)) return false;
+  const P = planEinfuegen(daten);
+  stand.importiert.push(id);
+  speichern();
+  toast((P.p ? 'Plan „' + P.p + '“' : 'Plan') + ' vom ' + datumDe(P.plan.d) + ' übernommen.' + (P.verlaufBleibt ? ' Ihr Verlauf bleibt erhalten.' : ''));
+  return true;
+}
+
+// Mehrere Plaene in einem Code (Tablet: "Alle Plaene ... in einem Code"), z. B. Oberkoerper und Unterkoerper
+function plaeneUebernehmen(daten, code){
+  const id = streuwert(code), liste = daten.liste || [];
+  if (!liste.length || (stand && stand.importiert.includes(id))) return false;
+  if (!mitgliedPruefen(liste[0].n)) return false;
+  const bleibt = liste.map(planEinfuegen).some(P => P.verlaufBleibt);
+  stand.aktiv = norm(liste[0].p);
+  stand.importiert.push(id);
+  speichern();
+  toast(liste.length + ' Pläne übernommen: ' + liste.map(p => p.p || 'Trainingsplan').join(', ') + '.' + (bleibt ? ' Ihr Verlauf bleibt erhalten.' : ''));
+  return true;
+}
+
+function planEinfuegen(daten){
   // Passenden Plan suchen: gleicher Planname. Bekommt der einzige, bisher unbenannte Plan einen Namen,
   // wird er umbenannt statt neu angelegt - sein Verlauf bleibt.
   const key = norm(daten.p);
@@ -296,10 +334,9 @@ function planUebernehmen(daten, code){
   P.p = daten.p || '';
   P.plan = { n: daten.n || '', d: datum, b: daten.b || '' };
   stand.aktiv = key;
-  stand.importiert.push(id);
-  speichern();
-  toast((P.p ? 'Plan „' + P.p + '“' : 'Plan') + ' vom ' + datumDe(datum) + ' übernommen.' + (verlaufBleibt ? ' Ihr Verlauf bleibt erhalten.' : ''));
-  return true;
+  // verlaufBleibt nur fuer die Meldung, wird nicht gespeichert
+  Object.defineProperty(P, 'verlaufBleibt', { value: verlaufBleibt, enumerable: false, configurable: true });
+  return P;
 }
 
 function sicherungUebernehmen(daten){
@@ -330,8 +367,9 @@ function streifenZeigen(){ try { return istIphone && !alsApp && !localStorage.ge
 function leerAnsicht(){
   return '<div class="leer-kasten"><h1>Ihr <span class="serif">Trainingsplan</span></h1>' +
     '<p>Ihren Plan bekommen Sie bei uns im Bewegungszentrum als QR-Code oder als Link. Öffnen Sie ihn einfach auf diesem Handy.</p>' +
+    '<button class="knopf" data-aktion="scannen">QR-Code scannen</button>' +
     '<p>Sie haben den Link schon kopiert, zum Beispiel aus WhatsApp?</p>' +
-    '<button class="knopf" data-aktion="einfuegen">Link einfügen</button>' +
+    '<button class="knopf zweit" data-aktion="einfuegen">Link einfügen</button>' +
     '<textarea class="link" id="link-feld" placeholder="Oder den Link hier hineinkopieren"></textarea>' +
     '<button class="knopf zweit" data-aktion="feld-uebernehmen">Übernehmen</button></div>' + fuss();
 }
@@ -371,7 +409,7 @@ function planAnsicht(){
   const P = aktiverPlan(), p = P.plan;
   let h = '<div class="titel"><h1>Ihr <span class="serif">Trainingsplan</span></h1><p>' +
     esc([stand.plaene.length < 2 ? P.p : '', p.n, 'Stand ' + datumDe(p.d), p.b ? 'erstellt von ' + p.b : ''].filter(Boolean).join(' · ')) + '</p></div>' +
-    planWahl();
+    planWahl() + scanKnopf('QR-Code vom Trainer scannen');
   if (streifenZeigen()) h += '<div class="streifen"><p>Damit Ihre Einträge dauerhaft bleiben: den Plan als App auf den Home-Bildschirm legen.</p>' +
     '<button data-aktion="anleitung">So geht’s</button><button data-aktion="streifen-weg" aria-label="Ausblenden">✕</button></div>';
   ABSCHNITTE.forEach(([s, titel]) => {
@@ -456,8 +494,9 @@ function mehrAnsicht(){
     : '';
   return '<div class="titel"><h1>Mehr</h1></div>' + plaene +
     '<div class="karte"><h3>Als App aufs Handy</h3><p>Dann ist der Plan mit einem Tipp da, und Ihre Einträge bleiben dauerhaft erhalten.</p>' + anleitungHtml() + '</div>' +
-    '<div class="karte"><h3>Neuen Plan einfügen</h3><p>Hat Ihr Trainer den Plan angepasst, bekommen Sie einen neuen Link. Öffnen Sie ihn oder fügen Sie ihn hier ein. Ihr Verlauf bleibt erhalten.</p>' +
-      '<button class="knopf" data-aktion="einfuegen">Link einfügen</button>' +
+    '<div class="karte"><h3>Neuer oder weiterer Plan</h3><p>Hat Ihr Trainer den Plan angepasst oder einen weiteren angelegt, scannen Sie den QR-Code hier in der App. Ihr Verlauf bleibt erhalten. Einen geschickten Link können Sie auch einfügen.</p>' +
+      '<button class="knopf" data-aktion="scannen">QR-Code scannen</button> ' +
+      '<button class="knopf zweit" data-aktion="einfuegen">Link einfügen</button>' +
       '<textarea class="link" id="link-feld" placeholder="Oder den Link hier hineinkopieren"></textarea>' +
       '<button class="knopf zweit" data-aktion="feld-uebernehmen">Übernehmen</button></div>' +
     '<div class="karte"><h3>Sicherung</h3><p>Packt Ihren Plan samt Verlauf in einen Link. Damit holen Sie alles auf ein neues Handy, oder Sie schicken ihn Ihrem Trainer zur nächsten Anpassung.</p>' +
@@ -470,7 +509,72 @@ const fuss = () => '<p class="fuss">BKS Bewegungszentrum · Felsenstraße 7, Mag
 
 /* ---------- Blatt von unten ---------- */
 function blatt(html){ $('#sheet-inhalt').innerHTML = html; $('#sheet').classList.add('offen'); }
-function blattZu(){ $('#sheet').classList.remove('offen'); }
+function blattZu(){ scanStop(); $('#sheet').classList.remove('offen'); }
+
+/* ---------- QR-Code in der App scannen ----------
+   Auf dem iPhone hat die App auf dem Home-Bildschirm einen eigenen Speicher. Die Kamera-App
+   oeffnet einen gescannten Link aber in Safari - der Plan landete dort statt in der App.
+   Deshalb wird hier in der App gescannt. Android-Chrome liest QR-Codes selbst (BarcodeDetector),
+   sonst wird beim ersten Mal jsQR geladen. */
+const scanKnopf = text => '<button class="scan-knopf" data-aktion="scannen"><svg viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M8 12h8"/></svg>' + esc(text) + '</button>';
+let scanStrom = null, scanLaeuft = false;
+function skriptLaden(src){
+  return new Promise((ok, fehler) => {
+    const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fehler(new Error('nicht geladen'));
+    document.head.appendChild(s);
+  });
+}
+function scanStop(){
+  scanLaeuft = false;
+  if (scanStrom) { scanStrom.getTracks().forEach(t => t.stop()); scanStrom = null; }
+}
+async function scanner(){
+  blatt(blattKopf('QR-Code scannen') +
+    '<p class="leise" style="margin-top:6px">Halten Sie die Kamera auf den QR-Code am Tablet des Trainers.</p>' +
+    '<div class="scan"><video id="scan-video" playsinline muted autoplay></video><div class="scan-rahmen"></div></div>' +
+    '<p class="leise" id="scan-info" style="margin-top:10px">Kamera wird gestartet …</p>');
+  const info = t => { const el = $('#scan-info'); if (el) el.textContent = t; };
+  try {
+    scanStrom = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+  } catch (e) {
+    info('Die Kamera ließ sich nicht öffnen. Erlauben Sie den Kamerazugriff, wenn das Handy danach fragt. Oder lassen Sie sich den Link schicken und fügen ihn unter „Mehr“ ein.');
+    return;
+  }
+  if (!$('#sheet').classList.contains('offen')) { scanStop(); return; }   // schon wieder geschlossen
+  const v = $('#scan-video'); v.srcObject = scanStrom;
+  try { await v.play(); } catch (e) {}
+  let erkenne = null;
+  if ('BarcodeDetector' in window) {
+    try { const d = new BarcodeDetector({ formats: ['qr_code'] }); erkenne = async () => { const r = await d.detect(v); return r[0] && r[0].rawValue; }; } catch (e) {}
+  }
+  if (!erkenne) {
+    if (!window.jsQR) {
+      info('QR-Leser wird geladen …');
+      try { await skriptLaden('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js'); }
+      catch (e) { info('Der QR-Leser ließ sich nicht laden. Ist das Handy online?'); return; }
+    }
+    const c = document.createElement('canvas'), ctx = c.getContext('2d', { willReadFrequently: true });
+    erkenne = async () => {
+      if (!v.videoWidth) return null;
+      const s = Math.min(1, 1280 / v.videoWidth);
+      c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s);
+      ctx.drawImage(v, 0, 0, c.width, c.height);
+      const r = jsQR(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: 'dontInvert' });
+      return r && r.data;
+    };
+  }
+  info('Halten Sie den Code ruhig in den Rahmen, etwa 20 bis 30 cm entfernt.');
+  scanLaeuft = true;
+  const runde = async () => {
+    if (!scanLaeuft) return;
+    let text = null;
+    try { text = await erkenne(); } catch (e) {}
+    if (text && ausLink(text)) { blattZu(); linkVerarbeiten(text); return; }
+    if (text) info('Das ist kein Trainingsplan-Code. Bitte den Code vom Tablet scannen.');
+    setTimeout(runde, 180);
+  };
+  runde();
+}
 const blattKopf = titel => '<div class="sheet-kopf"><h3>' + esc(titel) + '</h3><button class="schliessen" data-aktion="zu" aria-label="Schließen">×</button></div>';
 
 function gewichtBlatt(id){
@@ -564,6 +668,7 @@ document.addEventListener('click', async ev => {
       speichern(); blattZu(); zeige(); break;
     }
     case 'plan-wahl': stand.aktiv = t.dataset.key; speichern(); zeige('plan'); break;
+    case 'scannen': scanner(); break;
     case 'plan-weg': {
       const P = stand.plaene.find(x => x.key === t.dataset.key);
       if (!P || !confirm('Den Plan „' + planTitel(P) + '“ samt Gewichtsverlauf von diesem Handy entfernen?')) break;
