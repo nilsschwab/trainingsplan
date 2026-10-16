@@ -10,7 +10,7 @@
    Was hier steckt:
    - packen / auspacken: Plan -> JSON -> deflate -> base64url ("1..."),
      so passt er in einen Link, einen QR-Code oder eine Akten-Datei.
-     Plan: { t:'plan', v:1, n:Name, d:Datum, b:Betreuer,
+     Plan: { t:'plan', v:1, n:Name, d:Datum, b:"Erstellt von",
              x:{ c|g|k|f: [[Name, Serien, Wdh, Pause, Gewicht, Hinweis, Skizze], ...] } }
    - Skizzen: Striche auf einem Raster von 256 x 121 Punkten (das
      Seitenverhaeltnis des Skizzenfelds im Ausdruck, 58 x 27,5 mm),

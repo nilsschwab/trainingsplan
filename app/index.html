@@ -328,7 +328,7 @@ function gewichtKnopf(e){
 function planAnsicht(){
   const p = stand.plan;
   let h = '<div class="titel"><h1>Ihr <span class="serif">Trainingsplan</span></h1><p>' +
-    esc([p.n, 'Stand ' + datumDe(p.d), p.b ? 'betreut von ' + p.b : ''].filter(Boolean).join(' · ')) + '</p></div>';
+    esc([p.n, 'Stand ' + datumDe(p.d), p.b ? 'erstellt von ' + p.b : ''].filter(Boolean).join(' · ')) + '</p></div>';
   if (streifenZeigen()) h += '<div class="streifen"><p>Damit Ihre Einträge dauerhaft bleiben: den Plan als App auf den Home-Bildschirm legen.</p>' +
     '<button data-aktion="anleitung">So geht’s</button><button data-aktion="streifen-weg" aria-label="Ausblenden">✕</button></div>';
   ABSCHNITTE.forEach(([s, titel]) => {
