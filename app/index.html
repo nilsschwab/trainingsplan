@@ -30,6 +30,10 @@
    - "Sicherung" packt Plan und Verlauf wieder in einen Link: zum
      Umzug auf ein neues Handy oder zum Schicken an den Trainer.
 
+   Mehrere Plaene (Splits, z. B. Oberkoerper/Unterkoerper): jeder hat
+   einen eigenen QR-Code und landet hier als eigener Plan, oben gibt es
+   dann einen Umschalter. Zugeordnet wird ueber den Plannamen.
+
    Neuer Plan vom Trainer: Uebungen werden ueber Abschnitt und Namen
    wiedererkannt, ihr Gewichtsverlauf bleibt. Uebungen, die nicht mehr
    im Plan stehen, wandern mit Verlauf ins Archiv.
@@ -82,6 +86,11 @@ input, textarea{ font:inherit; color:inherit; }
 .werte span{ background:var(--grund); border-radius:999px; padding:3px 10px; font-size:14px; color:var(--text2);
   font-variant-numeric:tabular-nums; }
 .notiz{ margin-top:9px; font-size:15px; color:var(--text2); white-space:pre-line; }
+/* Umschalter zwischen mehreren Plaenen (Splits) */
+.planwahl{ display:flex; gap:8px; padding:12px 14px 0; overflow-x:auto; }
+.planwahl button{ flex:none; padding:9px 16px; border-radius:999px; background:var(--weiss); border:1.5px solid var(--linie);
+  font-size:15px; font-weight:600; color:var(--text2); }
+.planwahl button.an{ background:var(--indigo); border-color:var(--indigo); color:#fff; }
 /* Skizze vom Tablet */
 .skizze{ margin-top:10px; background:var(--grund); border-radius:10px; padding:6px; }
 .skizze svg{ display:block; width:100%; height:auto; aspect-ratio:256 / 121; }
@@ -214,13 +223,23 @@ const { packen, auspacken } = Kern;
 const ausLink = Kern.codeAus;
 
 /* ---------- Speicher ---------- */
+/* stand = { v:2, plaene:[ { key, p: Planname, plan:{n,d,b}, ex:[], archiv:[] } ], aktiv: key, importiert:[] }
+   Ein Mitglied kann mehrere Plaene haben (Splits, z. B. Oberkoerper und Unterkoerper). Jeder Plan
+   hat eigene Uebungen und einen eigenen Gewichtsverlauf, key ist der Planname klein geschrieben. */
 let stand = null;
-function laden(){ try { return JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) { return null; } }
+function laden(){ let s = null; try { s = JSON.parse(localStorage.getItem(SPEICHER)); } catch (e) {} return aufV2(s); }
+// Fruehere Fassung mit nur einem Plan (bis 16.10.2026): wird zum ersten Plan der Liste
+function aufV2(s){
+  if (!s || s.plaene) return s;
+  return { v: 2, plaene: [{ key: '', p: '', plan: s.plan, ex: s.ex || [], archiv: s.archiv || [] }], aktiv: '', importiert: s.importiert || [] };
+}
 function speichern(){
   try { localStorage.setItem(SPEICHER, JSON.stringify(stand)); return true; }
   catch (e) { toast('Speichern ging nicht. Ist der private Modus an?'); return false; }
 }
-const uebung = id => stand.ex.find(e => e.id === id);
+const aktiverPlan = () => stand.plaene.find(P => P.key === stand.aktiv) || stand.plaene[0];
+const planTitel = P => P.p || 'Trainingsplan';
+const uebung = id => aktiverPlan().ex.find(e => e.id === id);
 const aktuell = e => e.kg.length ? e.kg[e.kg.length - 1] : null;
 
 /* ---------- Plan oder Sicherung uebernehmen ---------- */
@@ -241,11 +260,21 @@ async function uebernehmen(code){
 function planUebernehmen(daten, code){
   const id = streuwert(code);
   if (stand && stand.importiert.includes(id)) return false;   // diesen Plan gibt es hier schon
-  if (stand && stand.plan.n && daten.n && norm(stand.plan.n) !== norm(daten.n) &&
-      !confirm('Dieser Plan ist für ' + daten.n + '. Er ersetzt den Plan von ' + stand.plan.n + ' auf diesem Handy. Fortfahren?')) return false;
+  const bisher = stand && stand.plaene.find(P => P.plan && P.plan.n);
+  if (bisher && daten.n && norm(bisher.plan.n) !== norm(daten.n)) {
+    if (!confirm('Dieser Plan ist für ' + daten.n + '. Er ersetzt alle Pläne von ' + bisher.plan.n + ' auf diesem Handy. Fortfahren?')) return false;
+    stand = null;
+  }
+  if (!stand) stand = { v: 2, plaene: [], aktiv: '', importiert: [] };
+  // Passenden Plan suchen: gleicher Planname. Bekommt der einzige, bisher unbenannte Plan einen Namen,
+  // wird er umbenannt statt neu angelegt - sein Verlauf bleibt.
+  const key = norm(daten.p);
+  let P = stand.plaene.find(x => x.key === key);
+  if (!P && key && stand.plaene.length === 1 && stand.plaene[0].key === '') { P = stand.plaene[0]; P.key = key; }
+  if (!P) { P = { key, p: '', plan: {}, ex: [], archiv: [] }; stand.plaene.push(P); }
   const datum = isoAus(daten.d);
-  const alt = stand ? stand.ex.slice() : [];
-  const altArchiv = stand ? stand.archiv.slice() : [];
+  const alt = P.ex.slice();
+  const altArchiv = P.archiv.slice();
   let verlaufBleibt = false;
   const neu = [];
   // Wiedererkennen ueber Abschnitt und Namen - erst im Plan, dann im Archiv (Uebung kommt zurueck)
@@ -262,11 +291,14 @@ function planUebernehmen(daten, code){
                kg: verlauf.map(({ d, w, q }) => ({ d, w, q })) });
   }));
   // Was nicht mehr im Plan steht, behaelt seinen Verlauf im Archiv
-  const archiv = altArchiv.concat(alt.filter(e => e.kg.length).map(e => Object.assign({}, e, { bis: datum })));
-  stand = { v: 1, plan: { n: daten.n || '', d: datum, b: daten.b || '' }, ex: neu, archiv,
-            importiert: (stand ? stand.importiert : []).concat(id) };
+  P.archiv = altArchiv.concat(alt.filter(e => e.kg.length).map(e => Object.assign({}, e, { bis: datum })));
+  P.ex = neu;
+  P.p = daten.p || '';
+  P.plan = { n: daten.n || '', d: datum, b: daten.b || '' };
+  stand.aktiv = key;
+  stand.importiert.push(id);
   speichern();
-  toast('Plan vom ' + datumDe(datum) + ' übernommen.' + (verlaufBleibt ? ' Ihr Verlauf bleibt erhalten.' : ''));
+  toast((P.p ? 'Plan „' + P.p + '“' : 'Plan') + ' vom ' + datumDe(datum) + ' übernommen.' + (verlaufBleibt ? ' Ihr Verlauf bleibt erhalten.' : ''));
   return true;
 }
 
@@ -274,7 +306,7 @@ function sicherungUebernehmen(daten){
   // Eine Sicherung soll nicht bei jedem Oeffnen erneut fragen: aus der Adresszeile nehmen
   if (ausLink(location.hash)) history.replaceState(null, '', location.pathname + location.search);
   if (stand && !confirm('Die Sicherung ersetzt alles, was auf diesem Handy steht. Fortfahren?')) return false;
-  stand = daten.stand;
+  stand = aufV2(daten.stand);
   speichern();
   toast('Sicherung übernommen.');
   return true;
@@ -285,8 +317,9 @@ let tab = 'plan';
 function zeige(neu){
   if (neu) tab = neu;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('an', b.dataset.tab === tab));
-  $('#tabs').style.display = stand ? '' : 'none';
-  $('#ansicht').innerHTML = !stand ? leerAnsicht() : tab === 'verlauf' ? verlaufAnsicht() : tab === 'mehr' ? mehrAnsicht() : planAnsicht();
+  const da = stand && stand.plaene.length;
+  $('#tabs').style.display = da ? '' : 'none';
+  $('#ansicht').innerHTML = !da ? leerAnsicht() : tab === 'verlauf' ? verlaufAnsicht() : tab === 'mehr' ? mehrAnsicht() : planAnsicht();
   window.scrollTo(0, 0);
 }
 
@@ -325,14 +358,24 @@ function gewichtKnopf(e){
   return '<button class="gewicht" data-aktion="gewicht" data-id="' + e.id + '"><b>' + esc(mitKg(a.w)) + '</b>' + unter + '</button>';
 }
 
+// Umschalter, wenn es mehrere Plaene gibt (z. B. Oberkoerper | Unterkoerper)
+function planWahl(){
+  if (stand.plaene.length < 2) return '';
+  const A = aktiverPlan();
+  return '<div class="planwahl" role="tablist">' + stand.plaene.map(P =>
+    '<button role="tab" aria-selected="' + (P === A) + '" class="' + (P === A ? 'an' : '') + '" data-aktion="plan-wahl" data-key="' + esc(P.key) + '">' +
+    esc(planTitel(P)) + '</button>').join('') + '</div>';
+}
+
 function planAnsicht(){
-  const p = stand.plan;
+  const P = aktiverPlan(), p = P.plan;
   let h = '<div class="titel"><h1>Ihr <span class="serif">Trainingsplan</span></h1><p>' +
-    esc([p.n, 'Stand ' + datumDe(p.d), p.b ? 'erstellt von ' + p.b : ''].filter(Boolean).join(' · ')) + '</p></div>';
+    esc([stand.plaene.length < 2 ? P.p : '', p.n, 'Stand ' + datumDe(p.d), p.b ? 'erstellt von ' + p.b : ''].filter(Boolean).join(' · ')) + '</p></div>' +
+    planWahl();
   if (streifenZeigen()) h += '<div class="streifen"><p>Damit Ihre Einträge dauerhaft bleiben: den Plan als App auf den Home-Bildschirm legen.</p>' +
     '<button data-aktion="anleitung">So geht’s</button><button data-aktion="streifen-weg" aria-label="Ausblenden">✕</button></div>';
   ABSCHNITTE.forEach(([s, titel]) => {
-    const liste = stand.ex.filter(e => e.s === s);
+    const liste = P.ex.filter(e => e.s === s);
     h += '<section class="abschnitt a-' + s + '"><h2>' + titel + '</h2>';
     liste.forEach(e => {
       h += '<article class="uebung"><div class="u-kopf"><h3>' + esc(e.name) + '</h3>' + gewichtKnopf(e) + '</div>' +
@@ -371,7 +414,8 @@ function verlaufZeile(e){
 }
 
 function verlaufAnsicht(){
-  const mit = stand.ex.filter(e => e.kg.length);
+  // Ueber alle Plaene; bei mehreren Plaenen mit Zwischenueberschrift je Plan
+  const mit = stand.plaene.flatMap(P => P.ex.filter(e => e.kg.length));
   const vergleichbar = mit.filter(e => e.kg.length > 1 && zahl(e.kg[0].w) !== null && zahl(aktuell(e).w) !== null);
   const mehr = vergleichbar.filter(e => zahl(aktuell(e).w) > zahl(e.kg[0].w)).length;
   const erster = mit.reduce((d, e) => !d || e.kg[0].d < d ? e.kg[0].d : d, '');
@@ -381,10 +425,17 @@ function verlaufAnsicht(){
       ? 'Bei <b>' + mehr + ' von ' + mit.length + '</b> Übungen trainieren Sie heute mit mehr Gewicht als am Anfang.'
       : 'Ihre Startgewichte stehen. Jedes neue Gewicht erscheint hier im Verlauf.') +
     '</p><p class="leise" style="margin-top:6px">Erster Eintrag am ' + datumDe(erster) + '</p></div>';
-  mit.forEach(e => { h += verlaufZeile(e); });
-  if (stand.archiv.length) {
+  const mehrere = stand.plaene.length > 1;
+  stand.plaene.forEach(P => {
+    const liste = P.ex.filter(e => e.kg.length);
+    if (!liste.length) return;
+    if (mehrere) h += '<h2 class="zwischen">' + esc(planTitel(P)) + '</h2>';
+    liste.forEach(e => { h += verlaufZeile(e); });
+  });
+  const archiv = stand.plaene.flatMap(P => P.archiv);
+  if (archiv.length) {
     h += '<h2 class="zwischen">Nicht mehr im Plan</h2>';
-    stand.archiv.forEach(e => { h += verlaufZeile(e); });
+    archiv.forEach(e => { h += verlaufZeile(e); });
   }
   return h + fuss();
 }
@@ -398,7 +449,12 @@ function anleitungHtml(){
 }
 
 function mehrAnsicht(){
-  return '<div class="titel"><h1>Mehr</h1></div>' +
+  const plaene = stand.plaene.length > 1
+    ? '<div class="karte"><h3>Ihre Pläne</h3><p>Brauchen Sie einen Plan nicht mehr, nehmen Sie ihn hier heraus. Die anderen bleiben, wie sie sind.</p>' +
+      '<ul class="liste">' + stand.plaene.map(P => '<li><span>' + esc(planTitel(P)) + ' · Stand ' + datumDe(P.plan.d, true) + '</span>' +
+        '<button class="textknopf" style="margin:0" data-aktion="plan-weg" data-key="' + esc(P.key) + '">Entfernen</button></li>').join('') + '</ul></div>'
+    : '';
+  return '<div class="titel"><h1>Mehr</h1></div>' + plaene +
     '<div class="karte"><h3>Als App aufs Handy</h3><p>Dann ist der Plan mit einem Tipp da, und Ihre Einträge bleiben dauerhaft erhalten.</p>' + anleitungHtml() + '</div>' +
     '<div class="karte"><h3>Neuen Plan einfügen</h3><p>Hat Ihr Trainer den Plan angepasst, bekommen Sie einen neuen Link. Öffnen Sie ihn oder fügen Sie ihn hier ein. Ihr Verlauf bleibt erhalten.</p>' +
       '<button class="knopf" data-aktion="einfuegen">Link einfügen</button>' +
@@ -448,8 +504,9 @@ function bearbeitenBlatt(id, s){
 
 /* ---------- Aktionen ---------- */
 async function sicherungTeilen(){
-  const link = location.origin + location.pathname + '#p=' + await packen({ t: 'stand', v: 1, stand });
-  const titel = 'Trainingsplan-Sicherung' + (stand.plan.n ? ' ' + stand.plan.n : '');
+  const link = location.origin + location.pathname + '#p=' + await packen({ t: 'stand', v: 2, stand });
+  const n = (stand.plaene.find(P => P.plan && P.plan.n) || { plan: {} }).plan.n;
+  const titel = 'Trainingsplan-Sicherung' + (n ? ' ' + n : '');
   if (navigator.share) { try { await navigator.share({ title: titel, url: link }); return; } catch (e) { if (e.name === 'AbortError') return; } }
   try { await navigator.clipboard.writeText(link); toast('Sicherungslink kopiert.'); }
   catch (e) { prompt('Sicherungslink zum Kopieren:', link); }
@@ -494,16 +551,25 @@ document.addEventListener('click', async ev => {
       const wert = k => ($('#f-' + k) ? $('#f-' + k).value.trim() : '');
       if (!wert('name')) { toast('Bitte einen Namen für die Übung eintragen.'); break; }
       if (id) Object.assign(uebung(id), { name: wert('name'), serien: wert('serien'), dauer: wert('dauer'), pause: wert('pause'), notiz: wert('notiz') });
-      else stand.ex.push({ id: neueId(), s: t.dataset.s, name: wert('name'), serien: wert('serien'), dauer: wert('dauer'), pause: wert('pause'),
+      else aktiverPlan().ex.push({ id: neueId(), s: t.dataset.s, name: wert('name'), serien: wert('serien'), dauer: wert('dauer'), pause: wert('pause'),
                            notiz: wert('notiz'), kg: wert('kg') ? [{ d: heuteIso(), w: wert('kg'), q: 'm' }] : [] });
       speichern(); blattZu(); zeige(); break;
     }
     case 'entfernen': {
       const e = uebung(id);
       if (!confirm('„' + e.name + '“ aus dem Plan nehmen? Der Gewichtsverlauf bleibt unter „Verlauf“ erhalten.')) break;
-      stand.ex = stand.ex.filter(x => x.id !== id);
-      if (e.kg.length) stand.archiv.push(Object.assign({}, e, { bis: heuteIso() }));
+      const P = aktiverPlan();
+      P.ex = P.ex.filter(x => x.id !== id);
+      if (e.kg.length) P.archiv.push(Object.assign({}, e, { bis: heuteIso() }));
       speichern(); blattZu(); zeige(); break;
+    }
+    case 'plan-wahl': stand.aktiv = t.dataset.key; speichern(); zeige('plan'); break;
+    case 'plan-weg': {
+      const P = stand.plaene.find(x => x.key === t.dataset.key);
+      if (!P || !confirm('Den Plan „' + planTitel(P) + '“ samt Gewichtsverlauf von diesem Handy entfernen?')) break;
+      stand.plaene = stand.plaene.filter(x => x !== P);
+      if (stand.aktiv === P.key && stand.plaene.length) stand.aktiv = stand.plaene[0].key;
+      speichern(); zeige(); break;
     }
     case 'anleitung': blatt(blattKopf('Als App aufs Handy') + '<div style="margin-top:10px">' + anleitungHtml() + '</div>'); break;
     case 'streifen-weg': try { localStorage.setItem(SPEICHER + '.streifen', '1'); } catch (e) {} zeige(); break;

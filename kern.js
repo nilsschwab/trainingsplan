@@ -10,7 +10,7 @@
    Was hier steckt:
    - packen / auspacken: Plan -> JSON -> deflate -> base64url ("1..."),
      so passt er in einen Link, einen QR-Code oder eine Akten-Datei.
-     Plan: { t:'plan', v:1, n:Name, d:Datum, b:"Erstellt von",
+     Plan: { t:'plan', v:1, n:Name, p:Planname (z. B. "Oberkoerper", leer = ohne), d:Datum, b:"Erstellt von",
              x:{ c|g|k|f: [[Name, Serien, Wdh, Pause, Gewicht, Hinweis, Skizze], ...] } }
    - Skizzen: Striche auf einem Raster von 256 x 121 Punkten (das
      Seitenverhaeltnis des Skizzenfelds im Ausdruck, 58 x 27,5 mm),
@@ -200,9 +200,9 @@ var Kern = (function () {
   }
 
   function heute() { return new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-  // z. B. "Trainingsplan Martina M. (16.10.2026)"
-  function dateiname(name, datum) {
-    return ('Trainingsplan ' + (name || 'ohne Name') + ' (' + (datum || heute()) + ')')
+  // z. B. "Trainingsplan Martina M. Oberkoerper (16.10.2026)"
+  function dateiname(name, datum, plan) {
+    return ('Trainingsplan ' + (name || 'ohne Name') + (plan ? ' ' + plan : '') + ' (' + (datum || heute()) + ')')
       .replace(/[^\wäöüÄÖÜß ().-]/g, '').replace(/\s+/g, ' ').trim();
   }
 

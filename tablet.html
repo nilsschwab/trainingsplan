@@ -16,6 +16,10 @@
 
    Fuer die Geraeteeinweisung am Android-Tablet: Plan im Stehen
    eintippen, Skizzen mit Stift oder Finger zeichnen. Danach:
+   - Mehrere Plaene je Mitglied (Splits, z. B. Oberkoerper/Unterkoerper):
+     Feld "Plan" fuer den Namen, "Weiterer Plan" legt den naechsten mit
+     gleichem Mitgliedsnamen an. Jeder Plan hat eigene Fassungen und
+     einen eigenen QR-Code; das Handy schaltet zwischen ihnen um.
    - "Speichern": legt den Plan auf diesem Tablet ab (Planliste).
      Beim Check-up: "Plaene" -> Name suchen -> oeffnen -> aendern ->
      speichern. Mit neuem Datum entsteht eine neue Fassung, die alte
@@ -69,7 +73,7 @@ label input{ height:50px; }
 label textarea{ resize:vertical; min-height:74px; line-height:1.4; }
 label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); box-shadow:0 0 0 3px rgba(61,75,167,.12); }
 
-.person{ display:grid; grid-template-columns:2fr 1fr 1.4fr; gap:14px; background:#fff; border-radius:16px; padding:16px;
+.person{ display:grid; grid-template-columns:1.6fr 1.2fr 1fr 1.3fr; gap:14px; background:#fff; border-radius:16px; padding:16px;
   box-shadow:0 1px 2px rgba(18,20,28,.06); }
 
 .abschnitt{ margin-top:28px; }
@@ -137,6 +141,12 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
 .bib summary{ cursor:pointer; padding:4px 0; }
 .bib details button{ display:inline-block; margin:6px 8px 0 0; background:var(--feld); color:var(--indigo); border-radius:8px; padding:7px 12px; font-size:14px; font-weight:600; }
 .bib .leer{ display:block; padding:24px 4px; color:var(--grau); }
+/* Je Mitglied ein Kopf, darunter eingerueckt seine Plaene */
+.bib li.mitglied{ border-bottom:0; padding:16px 4px 0; }
+.bib li.mitglied b{ font-size:19px; color:var(--tinte); }
+.bib .weiterer{ color:var(--indigo); font-size:14px; font-weight:600; padding:8px 12px; }
+.bib li:not(.mitglied):not(.leer){ padding-left:16px; }
+.bib li:not(.mitglied) .eintrag b{ font-size:17px; }
 .sicherung{ margin-top:12px; padding-top:12px; border-top:1px solid var(--linie); }
 .sicherung p{ font-size:14px; }
 .sicherung p.alt{ color:#8a4b00; font-weight:600; }
@@ -146,7 +156,7 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
 .toast.an{ opacity:1; transform:translateX(-50%) translateY(0); }
 
 @media (max-width:640px){
-  .person{ grid-template-columns:1fr 1fr; } .person label:first-child{ grid-column:1 / -1; }
+  .person{ grid-template-columns:1fr 1fr; }
   .k-werte{ grid-template-columns:repeat(2, 1fr); }
 }
 </style>
@@ -161,6 +171,7 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
 
 <section class="person">
   <label>Name<input id="p-name" autocomplete="off"></label>
+  <label>Plan<input id="p-plan" autocomplete="off" placeholder="z. B. Oberkörper"></label>
   <label>Erstellt am<input id="p-datum" autocomplete="off"></label>
   <label>Erstellt von<input id="p-betreuer" autocomplete="off"></label>
 </section>
@@ -170,6 +181,7 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
 <nav class="leiste"><div class="leiste-innen">
   <button data-aktion="plaene">Pläne</button>
   <button class="leise" data-aktion="neu">Neuer Plan</button>
+  <button class="leise" data-aktion="weiterer">Weiterer Plan</button>
   <span class="abstand"></span>
   <button id="b-speichern" data-aktion="speichern">Speichern</button>
   <button data-aktion="drucken">Drucken / PDF</button>
@@ -231,7 +243,7 @@ let toastZeit;
 function toast(t){ const el = $('#toast'); el.textContent = t; el.classList.add('an'); clearTimeout(toastZeit); toastZeit = setTimeout(() => el.classList.remove('an'), 4000); }
 
 const leereZeile = () => Object.fromEntries(REIHE.map(f => [f, '']));
-const leererPlan = () => ({ id:null, n:'', d: Kern.heute(), b: holen(localStorage, BETREUER) || '', x:{ c:[], g:[], k:[], f:[] } });
+const leererPlan = () => ({ id:null, n:'', p:'', d: Kern.heute(), b: holen(localStorage, BETREUER) || '', x:{ c:[], g:[], k:[], f:[] } });
 let plan = leererPlan();
 let geaendert = false;   // seit dem letzten Speichern veraendert?
 
@@ -249,7 +261,7 @@ function karteHtml(a, z, i){
     '</article>';
 }
 function zeichne(){
-  $('#p-name').value = plan.n; $('#p-datum').value = plan.d; $('#p-betreuer').value = plan.b;
+  $('#p-name').value = plan.n; $('#p-plan').value = plan.p || ''; $('#p-datum').value = plan.d; $('#p-betreuer').value = plan.b;
   $('#abschnitte').innerHTML = ABSCHNITTE.map(a => {
     const liste = plan.x[a.s];
     return '<section class="abschnitt a-' + a.s + '"><h2>' + a.titel + '<small>' + liste.length + ' von ' + a.max + ' Zeilen</small></h2>' +
@@ -266,7 +278,7 @@ function zeichne(){
 }
 function standZeigen(){
   const e = plan.id && bibLaden().plaene.find(x => x.id === plan.id);
-  $('#stand').innerHTML = e ? 'Auf dem Tablet gespeichert<br><b>' + (geaendert ? 'mit ungespeicherten Änderungen' : 'Stand ' + esc(letzte(e).d)) + '</b>'
+  $('#stand').innerHTML = e ? 'Auf dem Tablet gespeichert' + (e.p ? ' · ' + esc(e.p) : '') + '<br><b>' + (geaendert ? 'mit ungespeicherten Änderungen' : 'Stand ' + esc(letzte(e).d)) + '</b>'
                             : (geaendert ? '<b>Noch nicht gespeichert</b>' : '');
   $('#b-speichern').classList.toggle('ungesichert', geaendert);
 }
@@ -282,6 +294,7 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.dataset.f) plan.x[t.dataset.s][+t.dataset.i][t.dataset.f] = t.value;
   else if (t.id === 'p-name') plan.n = t.value;
+  else if (t.id === 'p-plan') plan.p = t.value;
   else if (t.id === 'p-datum') plan.d = t.value;
   else if (t.id === 'p-betreuer') { plan.b = t.value; ablegen(localStorage, BETREUER, t.value); }
   else if (t.id === 'such') { planListe(); return; }
@@ -296,7 +309,7 @@ function planDaten(){
     const z = plan.x[a.s].filter(r => r.name.trim()).map(r => REIHE.map(f => String(r[f] || '').trim()));
     if (z.length) x[a.s] = z;
   });
-  return { t:'plan', v:1, n: plan.n.trim(), d: plan.d.trim() || Kern.heute(), b: plan.b.trim(), x };
+  return { t:'plan', v:1, n: plan.n.trim(), p: (plan.p || '').trim(), d: plan.d.trim() || Kern.heute(), b: plan.b.trim(), x };
 }
 const anzahl = p => Object.values(p.x).reduce((n, z) => n + z.length, 0);
 function bereit(){
@@ -307,8 +320,10 @@ function bereit(){
   return p;
 }
 function planAus(daten){
-  const s = daten.t === 'stand' ? daten.stand : null, p = s ? s.plan : daten;
-  const neu = { id:null, n: p.n || '', d: s ? Kern.heute() : (p.d || Kern.heute()), b: p.b || plan.b, x:{} };
+  // Handy-Sicherung: seit den Splits mehrere Plaene (stand.plaene), genommen wird der gerade gezeigte
+  const S = daten.t === 'stand' ? daten.stand : null;
+  const s = S ? (S.plaene ? (S.plaene.find(x => x.key === S.aktiv) || S.plaene[0]) : S) : null, p = s ? s.plan : daten;
+  const neu = { id:null, n: p.n || '', p: (s ? s.p : p.p) || '', d: s ? Kern.heute() : (p.d || Kern.heute()), b: p.b || plan.b, x:{} };
   const zuviel = [];
   ABSCHNITTE.forEach(a => {
     const liste = s ? s.ex.filter(e => e.s === a.s).map(e => [e.name, e.serien, e.dauer, e.pause, e.kg.length ? e.kg[e.kg.length - 1].w : '', e.notiz, e.skizze || ''])
@@ -339,33 +354,52 @@ async function speichern(){
   const bib = bibLaden();
   let e = plan.id && bib.plaene.find(x => x.id === plan.id);
   if (!e) {
-    const gleich = bib.plaene.find(x => norm(x.n) === norm(p.n));
-    if (gleich && confirm('Es gibt schon einen Plan für „' + gleich.n + '“ (Stand ' + letzte(gleich).d + ').\n\n' +
+    // Gleicher Name und gleicher Planname: wahrscheinlich derselbe Plan. Anderer Planname: ein weiterer Plan (Split).
+    const gleich = bib.plaene.find(x => norm(x.n) === norm(p.n) && norm(x.p) === norm(p.p));
+    if (gleich && confirm('Es gibt schon einen Plan für „' + gleich.n + (gleich.p ? ' · ' + gleich.p : '') + '“ (Stand ' + letzte(gleich).d + ').\n\n' +
                           'OK: als neue Fassung dazu speichern.\nAbbrechen: als eigenen Plan anlegen (andere Person mit gleichem Namen).')) e = gleich;
   }
-  if (!e) { e = { id: neueId(), n: p.n, versionen: [] }; bib.plaene.push(e); }
-  e.n = p.n;
+  if (!e) { e = { id: neueId(), n: p.n, p: p.p, versionen: [] }; bib.plaene.push(e); }
+  e.n = p.n; e.p = p.p;
   const v = { d: p.d, zeit: new Date().toISOString(), code: await Kern.packen(p) };
   // Gleiches Datum: diese Fassung ueberschreiben. Neues Datum (z. B. Check-up): neue Fassung, die alte bleibt.
   if (e.versionen.length && letzte(e).d === p.d) e.versionen[e.versionen.length - 1] = v; else e.versionen.push(v);
   if (!bibSchreiben(bib)) return;
   plan.id = e.id; geaendert = false; merken(); standZeigen(); dauerhaft();
   const alt = tageSeit(holen(localStorage, GESICHERT)) > ERINNERN_TAGE;
-  toast('Gespeichert: ' + p.n + ', Stand ' + p.d + '.' + (alt ? ' Tipp: Unter „Pläne“ mal wieder alle Pläne sichern.' : ''));
+  toast('Gespeichert: ' + p.n + (p.p ? ' · ' + p.p : '') + ', Stand ' + p.d + '.' + (alt ? ' Tipp: Unter „Pläne“ mal wieder alle Pläne sichern.' : ''));
 }
 
+// Weiterer Plan (Split) fuer dasselbe Mitglied: Name und "Erstellt von" bleiben, Uebungen sind leer
+function weitererPlan(name, betreuer){
+  plan = leererPlan(); plan.n = name; if (betreuer) plan.b = betreuer;
+  geaendert = false; merken(); zeichne(); window.scrollTo(0, 0);
+  $('#d-plaene').classList.remove('offen');
+  $('#p-plan').focus();
+  toast('Weiterer Plan für ' + name + '. Gib ihm oben bei „Plan“ einen Namen, z. B. Unterkörper.');
+}
+
+// Liste nach Mitglied: je Mitglied ein Kopf, darunter seine Plaene (Splits) mit ihren Fassungen
 function planListe(){
   const bib = bibLaden(), such = norm($('#such').value);
-  const liste = bib.plaene.filter(e => !such || norm(e.n).includes(such))
-    .sort((a, b) => letzte(b).zeit < letzte(a).zeit ? -1 : 1);
-  $('#bib').innerHTML = liste.length ? liste.map(e => {
-    const n = e.versionen.length;
-    return '<li><button class="eintrag" data-aktion="bib-oeffnen" data-id="' + e.id + '"><b>' + esc(e.n) + '</b><span>Stand ' + esc(letzte(e).d) +
-        (n > 1 ? ' · ' + n + ' Fassungen' : '') + '</span></button>' +
-      '<button class="loeschen" data-aktion="bib-loeschen" data-id="' + e.id + '">Löschen</button>' +
-      (n > 1 ? '<details><summary>Frühere Fassungen</summary>' + e.versionen.slice(0, -1).map((v, k) =>
-        '<button data-aktion="bib-oeffnen" data-id="' + e.id + '" data-v="' + k + '">Stand ' + esc(v.d) + '</button>').reverse().join('') + '</details>' : '') +
-      '</li>';
+  const treffer = bib.plaene.filter(e => !such || norm(e.n).includes(such) || norm(e.p).includes(such));
+  const gruppen = new Map();
+  treffer.forEach(e => { const k = norm(e.n); if (!gruppen.has(k)) gruppen.set(k, []); gruppen.get(k).push(e); });
+  const neueste = l => l.reduce((z, e) => letzte(e).zeit > z ? letzte(e).zeit : z, '');
+  const liste = [...gruppen.values()].sort((a, b) => neueste(b) < neueste(a) ? -1 : 1);
+  $('#bib').innerHTML = liste.length ? liste.map(plaene => {
+    plaene.sort((a, b) => norm(a.p) < norm(b.p) ? -1 : 1);
+    return '<li class="mitglied"><b>' + esc(plaene[0].n) + '</b>' +
+      '<button class="weiterer" data-aktion="bib-weiterer" data-id="' + plaene[0].id + '">+ Weiterer Plan</button></li>' +
+      plaene.map(e => {
+        const n = e.versionen.length;
+        return '<li><button class="eintrag" data-aktion="bib-oeffnen" data-id="' + e.id + '"><b>' + esc(e.p || 'Trainingsplan') + '</b><span>Stand ' + esc(letzte(e).d) +
+            (n > 1 ? ' · ' + n + ' Fassungen' : '') + '</span></button>' +
+          '<button class="loeschen" data-aktion="bib-loeschen" data-id="' + e.id + '">Löschen</button>' +
+          (n > 1 ? '<details><summary>Frühere Fassungen</summary>' + e.versionen.slice(0, -1).map((v, k) =>
+            '<button data-aktion="bib-oeffnen" data-id="' + e.id + '" data-v="' + k + '">Stand ' + esc(v.d) + '</button>').reverse().join('') + '</details>' : '') +
+          '</li>';
+      }).join('');
   }).join('') : '<li class="leer">' + (such ? 'Kein Plan mit diesem Namen.' : 'Noch keine Pläne auf diesem Tablet.') + '</li>';
   const g = holen(localStorage, GESICHERT), tage = tageSeit(g), el = $('#sicherung-stand');
   el.textContent = bib.plaene.length + (bib.plaene.length === 1 ? ' Plan' : ' Pläne') + ' auf diesem Tablet. ' +
@@ -437,7 +471,7 @@ async function qrZeigen(){
   const p = bereit(); if (!p) return;
   const r = await Kern.handyLink(p);
   teilLink = r.lang || r.link;
-  const info = [anzahl(p) + (anzahl(p) === 1 ? ' Übung' : ' Übungen') + (p.n ? ' für ' + p.n : ', ohne Namen')];
+  const info = [anzahl(p) + (anzahl(p) === 1 ? ' Übung' : ' Übungen') + (p.n ? ' für ' + p.n : ', ohne Namen') + (p.p ? ' · Plan „' + p.p + '“' : '') + '.'];
   if (r.ohneSkizzen) info.push('Die Skizzen passen nicht mehr in den QR-Code. „Link teilen“ nimmt sie mit.');
   $('#qr').innerHTML = '';
   try { const q = qrcode(0, 'L'); q.addData(r.link); q.make(); $('#qr').innerHTML = q.createSvgTag({ cellSize: 4, margin: 4, scalable: true }); }
@@ -482,6 +516,20 @@ document.addEventListener('click', async ev => {
       break;
     }
     case 'plaene': $('#such').value = ''; planListe(); $('#d-plaene').classList.add('offen'); break;
+    case 'weiterer': {
+      if (!plan.n.trim()) { toast('Erst den Namen des Mitglieds eintragen.'); $('#p-name').focus(); break; }
+      // Damit das Handy die Plaene auseinanderhalten kann, braucht auch der erste einen Namen
+      if (!(plan.p || '').trim()) { toast('Gib zuerst diesem Plan bei „Plan“ einen Namen, z. B. Oberkörper, und speichere ihn.'); $('#p-plan').focus(); break; }
+      if (geaendert && !confirm('Dieser Plan ist nicht gespeichert. Trotzdem einen weiteren anfangen?')) break;
+      weitererPlan(plan.n.trim(), plan.b);
+      break;
+    }
+    case 'bib-weiterer': {
+      const e = bibLaden().plaene.find(x => x.id === t.dataset.id); if (!e) break;
+      if (geaendert && !confirm('Der Plan auf dem Bildschirm ist nicht gespeichert. Trotzdem einen weiteren anfangen?')) break;
+      weitererPlan(e.n, plan.b);
+      break;
+    }
     case 'bib-oeffnen': bibOeffnen(t.dataset.id, t.dataset.v == null ? null : +t.dataset.v); break;
     case 'bib-loeschen': {
       const bib = bibLaden(), e = bib.plaene.find(x => x.id === t.dataset.id);
