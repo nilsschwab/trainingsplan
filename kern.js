@@ -30,7 +30,7 @@ var Kern = (function () {
   // (Entscheidung Nils 16.10.2026). Veroeffentlicht wird mit veroeffentlichen.ps1.
   // Achtung: Die Plaene auf dem Tablet haengen an dieser Adresse, Akten-Dateien merken sie sich.
   var OEFFENTLICH = 'https://nilsschwab.github.io/trainingsplan/';
-  var ONLINE = false;   // auf true setzen, sobald der Ordner veroeffentlicht ist
+  var ONLINE = true;    // seit 16.10.2026 veroeffentlicht (sonst zeigt der QR-Dialog einen Hinweis)
   // Links fuer andere (Handy des Mitglieds) muessen ins Netz zeigen, nie auf eine Datei
   var BASIS = location.protocol === 'file:' ? OEFFENTLICH : ORDNER;
   var QR_MAX = 2900;    // mehr Zeichen passen nicht in einen QR-Code
