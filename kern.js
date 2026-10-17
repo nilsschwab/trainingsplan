@@ -199,6 +199,33 @@ var Kern = (function () {
       '<\/script>\n</body></html>\n';
   }
 
+  /* ---------- Neue Fassung laden ----------
+     Die App auf dem Home-Bildschirm laeuft oft tagelang weiter und holt sich keine neue Fassung
+     (Fall Nils, 17.10.2026: eine alte Fassung ohne Splits hat einen Plan ersetzt). Deshalb: beim
+     Oeffnen und beim Zurueckkehren app/version.json fragen. Weicht der Stand ab, mit ?v=<stand>
+     neu laden - die neue Adresse umgeht den Zwischenspeicher. veroeffentlichen.ps1 traegt den Stand
+     ein; lokal steht dort noch der Platzhalter, dann passiert nichts. */
+  // darf: optional; liefert false, solange nicht neu geladen werden soll (z. B. ungespeicherte Aenderungen am Tablet)
+  function aufNeuePruefen(stand, darf) {
+    if (!stand || stand.charAt(0) === '@' || location.protocol === 'file:') return;
+    var pruefen = function () {
+      if (darf && !darf()) return;
+      fetch(ORDNER + 'app/version.json?t=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j || !j.stand || j.stand === stand) return;
+          // Hoechstens alle zwei Minuten ein Versuch, damit nichts im Kreis laedt
+          var merk = 'bks-neu-geladen', zuletzt = 0;
+          try { zuletzt = +sessionStorage.getItem(merk) || 0; sessionStorage.setItem(merk, String(Date.now())); } catch (e) {}
+          if (Date.now() - zuletzt < 120000) return;
+          location.replace(location.pathname + '?v=' + encodeURIComponent(j.stand) + location.hash);
+        })
+        .catch(function () {});
+    };
+    pruefen();
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') pruefen(); });
+  }
+
   function heute() { return new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
   // z. B. "Trainingsplan Martina M. Oberkoerper (16.10.2026)"
   function dateiname(name, datum, plan) {
@@ -210,6 +237,7 @@ var Kern = (function () {
     ORDNER: ORDNER, OEFFENTLICH: OEFFENTLICH, ONLINE: ONLINE, BASIS: BASIS, QR_MAX: QR_MAX,
     packen: packen, auspacken: auspacken, codeAus: codeAus,
     skizzePacken: skizzePacken, skizzeAuspacken: skizzeAuspacken, skizzeSvg: skizzeSvg, Zeichenfeld: Zeichenfeld,
-    handyLink: handyLink, ohneSkizzen: ohneSkizzen, aktenDatei: aktenDatei, heute: heute, dateiname: dateiname
+    handyLink: handyLink, ohneSkizzen: ohneSkizzen, aktenDatei: aktenDatei, heute: heute, dateiname: dateiname,
+    aufNeuePruefen: aufNeuePruefen
   };
 })();

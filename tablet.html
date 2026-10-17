@@ -221,7 +221,7 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
 
 <div class="toast" id="toast"></div>
 
-<script src="kern.js"></script>
+<script src="kern.js?v=0076df3107"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 const ABSCHNITTE = [
@@ -231,6 +231,8 @@ const ABSCHNITTE = [
   { s:'f', titel:'Freie Übungen', max:6, felder:['serien', 'dauer', 'pause', 'kg'], skizze:true },
 ];
 const LABEL = { serien:['Serien', 'numeric'], dauer:['Wdh / Dauer', 'text'], pause:['Pause', 'text'], kg:['Gewicht (kg)', 'decimal'] };
+// Feld "dauer" je Bereich: Cardio nur Minuten, Geraete und Freie Uebungen nur Wdh, Koordination beides (Nils, 17.10.2026)
+const feldLabel = (s, f) => f !== 'dauer' ? LABEL[f][0] : s === 'c' ? 'Dauer (Min)' : s === 'k' ? 'Wdh / Dauer' : 'Wdh';
 const REIHE = ['name', 'serien', 'dauer', 'pause', 'kg', 'notiz', 'skizze'];   // Reihenfolge im gepackten Plan
 const ENTWURF = 'bks-tablet-entwurf', BETREUER = 'bks-tablet-betreuer';
 const BIB = 'bks-tablet-plaene', GESICHERT = 'bks-tablet-gesichert';
@@ -257,7 +259,7 @@ function karteHtml(a, z, i){
   return '<article class="karte">' +
     '<div class="k-kopf"><label>Übung / Gerät<input ' + at('name') + ' value="' + esc(z.name) + '" autocomplete="off" enterkeyhint="next"></label>' +
     '<button class="weg" data-aktion="weg" ' + ziel + '>Entfernen</button></div>' +
-    '<div class="k-werte">' + a.felder.map(f => '<label>' + LABEL[f][0] + '<input ' + at(f) + ' inputmode="' + LABEL[f][1] + '" value="' + esc(z[f]) + '" autocomplete="off"></label>').join('') + '</div>' +
+    '<div class="k-werte">' + a.felder.map(f => '<label>' + feldLabel(a.s, f) + '<input ' + at(f) + ' inputmode="' + LABEL[f][1] + '" value="' + esc(z[f]) + '" autocomplete="off"></label>').join('') + '</div>' +
     '<label>Hinweis<textarea ' + at('notiz') + ' rows="2">' + esc(z.notiz) + '</textarea></label>' +
     (a.skizze ? '<div class="k-skizze"><span class="lbl">Skizze (mit Stift oder Finger)</span><div class="zf" ' + ziel + '></div>' +
       '<div class="zf-knoepfe"><button data-aktion="rueck" ' + ziel + '>Rückgängig</button><button data-aktion="leeren" ' + ziel + '>Skizze löschen</button></div></div>' : '') +
@@ -600,6 +602,9 @@ $('#datei').onchange = e => {
   }
   zeichne();
 })();
+// Neue Fassung laden, wenn das Tablet zur Seite zurueckkehrt - aber nie mitten in ungespeicherter Arbeit
+const APP_STAND = '0076df3107';
+Kern.aufNeuePruefen(APP_STAND, () => !geaendert);
 </script>
 </body>
 </html>

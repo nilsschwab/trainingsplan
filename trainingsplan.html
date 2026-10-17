@@ -291,21 +291,23 @@ td.k .ce{ font-size:10pt; color:var(--tinte); }
   </div>
 </div>
 
-<script src="kern.js"></script>
+<script src="kern.js?v=0076df3107"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 
 <script>
 /* Spalten: [Schluessel, Ueberschrift, Breite in mm]. Die Hinweisspalte bekommt den Rest.
    Zeilenzahl wie in der alten Vorlage; Hoehe in mm, so verteilt, dass Seite 1 genau voll ist. */
+/* Spalte "dauer" je Bereich (Nils, 17.10.2026): Cardio nur Minuten, Geraete und Freie Uebungen nur Wdh,
+   Koordination beides. Intern heisst das Feld weiter "dauer". */
 const ABSCHNITTE = {
   cardio:       { titel:'Cardio',        zeilen:4, hoehe:7.8,
-                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Dauer / Wdh',27]] },
+                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Dauer (Min)',27]] },
   geraete:      { titel:'Geräte',        zeilen:8, hoehe:8.8,
-                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Dauer / Wdh',27], ['pause','Pause',19], ['kg','Gewicht / kg',24]] },
+                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Wdh',27], ['pause','Pause',19], ['kg','Gewicht / kg',24]] },
   koordination: { titel:'Koordination',  zeilen:5, hoehe:8,
-                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Dauer / Wdh',27]] },
+                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Wdh / Dauer',27]] },
   frei:         { titel:'Freie Übungen', zeilen:6, hoehe:27.5,
-                  spalten:[['name','',50], ['skizze','Skizze',58], ['serien','Serien',17], ['dauer','Dauer / Wdh',23], ['pause','Pause',17], ['kg','Gewicht / kg',23]] },
+                  spalten:[['name','',50], ['skizze','Skizze',58], ['serien','Serien',17], ['dauer','Wdh',23], ['pause','Pause',17], ['kg','Gewicht / kg',23]] },
 };
 
 /* ---------- Aufbau ---------- */
@@ -560,8 +562,8 @@ const BEISPIEL = {
   'frei.1.notiz':'Arme bleiben lang, die Drehung kommt aus dem Oberkörper. Die Hüfte zeigt nach vorn.',
   'frei.2.name':'Kniebeuge mit Kurzhantel', 'frei.2.serien':'3', 'frei.2.dauer':'12', 'frei.2.pause':'60 s', 'frei.2.kg':'6',
   'frei.2.notiz':'Hantel vor der Brust. Gesäß nach hinten wie zum Hinsetzen, Fersen bleiben am Boden.',
-  'frei.3.name':'Unterarmstütz', 'frei.3.serien':'3', 'frei.3.dauer':'20 s', 'frei.3.pause':'40 s',
-  'frei.3.notiz':'Auf der Matte. Körper bildet eine Linie, kein Hohlkreuz. Normal weiteratmen.',
+  'frei.3.name':'Ausfallschritt im Stand', 'frei.3.serien':'3', 'frei.3.dauer':'je 10', 'frei.3.pause':'45 s',
+  'frei.3.notiz':'Hinteres Knie Richtung Boden, Oberkörper bleibt aufrecht.',
 };
 // Beispielskizze: Strichfigur in Schrittstellung am Seilzugturm, Pfeil zeigt die Zugrichtung
 function beispielSkizze(){
