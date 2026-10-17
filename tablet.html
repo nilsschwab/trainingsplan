@@ -12,7 +12,7 @@
 <style>
 /* ===================================================================
    BKS Bewegungszentrum — Trainingsplan am Tablet
-   Fassung 16.10.2026
+   Fassung 17.10.2026
 
    Fuer die Geraeteeinweisung am Android-Tablet: Plan im Stehen
    eintippen, Skizzen mit Stift oder Finger zeichnen. Danach:
@@ -42,8 +42,15 @@
    nutzen wollen (Nils, 16.10.2026: aeltere Mitglieder) - dafuer gibt
    es weiter die leere Vorlage zum Ausdrucken.
 
-   Zeilenzahl wie im Ausdruck (Cardio 4, Geraete 8, Koordination 5,
-   Freie Uebungen 6), damit der Plan auf zwei Seiten passt.
+   Eine Liste fuer alle Uebungen (seit 17.10.2026, Wunsch Nils): Jede
+   Uebung beginnt mit der Kategorie (Cardio, Geraet, Koordination,
+   Freie Uebung), danach richten sich die Felder. Am Griff laesst sie
+   sich an jede Stelle ziehen, auch eine Freie Uebung vor ein Geraet.
+   Diese Reihenfolge bekommt das Handy (o im Plan, siehe kern.js).
+   Der A4-Ausdruck hat feste Tabellen je Kategorie und bleibt danach
+   sortiert. Deshalb gilt je Kategorie weiter die Zeilenzahl des
+   Ausdrucks (Cardio 4, Geraete 8, Koordination 5, Freie Uebungen 6),
+   damit der Plan auf zwei Seiten passt.
 
    Der Entwurf, an dem gerade gearbeitet wird, liegt zusaetzlich im
    Sitzungsspeicher dieses Tabs: Ein versehentliches Neuladen verliert
@@ -78,16 +85,26 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
 .person{ display:grid; grid-template-columns:1.6fr 1.2fr 1fr 1.3fr; gap:14px; background:#fff; border-radius:16px; padding:16px;
   box-shadow:0 1px 2px rgba(18,20,28,.06); }
 
-.abschnitt{ margin-top:28px; }
-.abschnitt h2{ display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--grau); margin-bottom:10px; }
-.abschnitt h2::before{ content:""; width:14px; height:14px; border-radius:4px; background:var(--akzent); }
-.abschnitt h2 small{ margin-left:auto; font-size:13px; letter-spacing:.02em; text-transform:none; font-weight:500; }
+.liste-kopf{ display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 12px; margin:28px 0 10px; }
+.liste-kopf h2{ font-size:14px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--grau); }
+.liste-kopf small{ margin-left:auto; font-size:13px; color:var(--grau); }
 .a-c, .a-k{ --akzent:var(--hellblau); }
 .a-g, .a-f{ --akzent:var(--indigo); }
 
-.karte{ background:#fff; border-radius:16px; padding:16px 16px 16px 18px; margin-bottom:12px; border-left:5px solid var(--akzent);
-  box-shadow:0 1px 2px rgba(18,20,28,.06); display:grid; gap:12px; }
+.karte{ background:#fff; border-radius:16px; padding:14px 16px 16px 18px; margin-bottom:12px; border-left:5px solid var(--akzent);
+  box-shadow:0 1px 2px rgba(18,20,28,.06); display:grid; gap:12px; transition:transform .15s ease; }
+/* Kategorie zuerst: danach richten sich die Felder der Karte */
+.k-oben{ display:flex; align-items:center; gap:12px; }
+.kat{ display:flex; flex-wrap:wrap; gap:4px; background:var(--grund); border-radius:12px; padding:4px; }
+.kat button{ height:42px; padding:0 14px; border-radius:9px; font-size:15px; font-weight:600; color:var(--text2); }
+.kat button.an{ background:var(--indigo); color:#fff; box-shadow:0 1px 2px rgba(18,20,28,.15); }
+.kat button:disabled{ color:#b6bbc7; cursor:not-allowed; }
+/* Reihenfolge per Ziehen am Griff (touch-action:none, sonst scrollt die Seite statt zu ziehen) */
+.griff{ margin-left:auto; display:inline-flex; align-items:center; gap:6px; height:42px; padding:0 12px; border-radius:10px;
+  color:var(--grau); font-size:15px; font-weight:500; touch-action:none; user-select:none; -webkit-user-select:none; cursor:grab; }
+.griff svg{ width:22px; height:22px; fill:currentColor; }
+.karte.zieht{ transition:none; position:relative; z-index:6; box-shadow:0 16px 40px rgba(18,20,28,.25); }
+body.zieht-gerade{ user-select:none; -webkit-user-select:none; }
 .k-kopf{ display:flex; gap:12px; align-items:flex-end; }
 .k-kopf label{ flex:1; }
 .k-kopf input{ font-weight:600; }
@@ -102,8 +119,11 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
 .zf-knoepfe{ display:flex; gap:10px; margin-top:8px; }
 .zf-knoepfe button{ background:var(--feld); color:var(--indigo); border-radius:10px; padding:9px 14px; font-size:15px; font-weight:600; }
 
-.dazu{ display:block; width:100%; border:1.5px dashed #c4c9d6; border-radius:14px; padding:14px; color:var(--indigo); font-weight:600; }
-.voll{ color:var(--grau); font-size:14px; padding:6px 2px; }
+.dazu-zeile{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; border:1.5px dashed #c4c9d6; border-radius:14px; padding:12px 14px; }
+.dazu-zeile > span{ color:var(--grau); font-size:15px; font-weight:600; margin-right:4px; }
+.dazu-zeile button{ height:46px; padding:0 16px; border-radius:10px; background:var(--feld); color:var(--indigo); font-weight:600; }
+.dazu-zeile button:disabled{ color:#b6bbc7; background:var(--grund); cursor:not-allowed; }
+.voll{ color:var(--grau); font-size:14px; padding:8px 2px 0; }
 
 /* Untere Leiste */
 .leiste{ position:fixed; left:0; right:0; bottom:0; background:rgba(255,255,255,.97); border-top:1px solid var(--linie);
@@ -178,7 +198,7 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
   <label>Erstellt von<input id="p-betreuer" autocomplete="off"></label>
 </section>
 
-<div id="abschnitte"></div>
+<div id="uebungen"></div>
 
 <nav class="leiste"><div class="leiste-innen">
   <button data-aktion="plaene">Pläne</button>
@@ -221,15 +241,18 @@ label input:focus, label textarea:focus{ outline:0; border-color:var(--indigo); 
 
 <div class="toast" id="toast"></div>
 
-<script src="kern.js?v=0076df3107"></script>
+<script src="kern.js?v=b181102273"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
+// max: Zeilen dieser Kategorie im A4-Ausdruck
 const ABSCHNITTE = [
-  { s:'c', titel:'Cardio',        max:4, felder:['serien', 'dauer'] },
-  { s:'g', titel:'Geräte',        max:8, felder:['serien', 'dauer', 'pause', 'kg'] },
-  { s:'k', titel:'Koordination',  max:5, felder:['serien', 'dauer'] },
-  { s:'f', titel:'Freie Übungen', max:6, felder:['serien', 'dauer', 'pause', 'kg'], skizze:true },
+  { s:'c', titel:'Cardio',        eine:'Cardio',       max:4, felder:['serien', 'dauer'] },
+  { s:'g', titel:'Geräte',        eine:'Gerät',        max:8, felder:['serien', 'dauer', 'pause', 'kg'] },
+  { s:'k', titel:'Koordination',  eine:'Koordination', max:5, felder:['serien', 'dauer'] },
+  { s:'f', titel:'Freie Übungen', eine:'Freie Übung',  max:6, felder:['serien', 'dauer', 'pause', 'kg'], skizze:true },
 ];
+const BEREICH = Object.fromEntries(ABSCHNITTE.map(a => [a.s, a]));
+const GRIFF = '<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
 const LABEL = { serien:['Serien', 'numeric'], dauer:['Wdh / Dauer', 'text'], pause:['Pause', 'text'], kg:['Gewicht (kg)', 'decimal'] };
 // Feld "dauer" je Bereich: Cardio nur Minuten, Geraete und Freie Uebungen nur Wdh, Koordination beides (Nils, 17.10.2026)
 const feldLabel = (s, f) => f !== 'dauer' ? LABEL[f][0] : s === 'c' ? 'Dauer (Min)' : s === 'k' ? 'Wdh / Dauer' : 'Wdh';
@@ -247,16 +270,32 @@ const neueId = () => Date.now().toString(36) + Math.random().toString(36).slice(
 let toastZeit;
 function toast(t){ const el = $('#toast'); el.textContent = t; el.classList.add('an'); clearTimeout(toastZeit); toastZeit = setTimeout(() => el.classList.remove('an'), 4000); }
 
-const leereZeile = () => Object.fromEntries(REIHE.map(f => [f, '']));
-const leererPlan = () => ({ id:null, n:'', p:'', d: Kern.heute(), b: holen(localStorage, BETREUER) || '', x:{ c:[], g:[], k:[], f:[] } });
+/* plan.u: alle Uebungen in einer Liste, in der Reihenfolge des Plans; s = Kategorie (c, g, k, f) */
+const leereZeile = s => Object.assign({ s }, Object.fromEntries(REIHE.map(f => [f, ''])));
+const leererPlan = () => ({ id:null, n:'', p:'', d: Kern.heute(), b: holen(localStorage, BETREUER) || '', u:[] });
+// Entwurf aus der Fassung vor dem 17.10.2026 (Uebungen nach Kategorie getrennt in plan.x)
+function aufListe(p){
+  if (!p.u) { p.u = []; ABSCHNITTE.forEach(a => ((p.x || {})[a.s] || []).forEach(z => p.u.push(Object.assign({}, z, { s: a.s })))); delete p.x; }
+  return p;
+}
 let plan = leererPlan();
 let geaendert = false;   // seit dem letzten Speichern veraendert?
+const zahlIn = s => plan.u.filter(z => z.s === s).length;
+const voll = s => zahlIn(s) >= BEREICH[s].max;
 
 /* ---------- Anzeige ---------- */
-function karteHtml(a, z, i){
-  const at = f => 'data-s="' + a.s + '" data-i="' + i + '" data-f="' + f + '"';
-  const ziel = 'data-s="' + a.s + '" data-i="' + i + '"';
-  return '<article class="karte">' +
+function karteHtml(z, i){
+  const a = BEREICH[z.s];
+  const at = f => 'data-i="' + i + '" data-f="' + f + '"';
+  const ziel = 'data-i="' + i + '"';
+  return '<article class="karte a-' + z.s + '">' +
+    // Kategorie zuerst. Ist eine im Ausdruck schon voll, laesst sie sich nicht waehlen.
+    '<div class="k-oben"><div class="kat" role="radiogroup" aria-label="Kategorie">' + ABSCHNITTE.map(b => {
+      const an = b.s === z.s, zu = !an && voll(b.s);
+      return '<button role="radio" aria-checked="' + an + '"' + (an ? ' class="an"' : '') + ' data-aktion="kat" data-k="' + b.s + '" ' + ziel +
+        (zu ? ' disabled title="Alle ' + b.max + ' Zeilen für ' + b.titel + ' im Ausdruck belegt"' : '') + '>' + b.eine + '</button>';
+    }).join('') + '</div>' +
+    (plan.u.length > 1 ? '<span class="griff" data-griff="' + i + '" aria-label="Übung verschieben">' + GRIFF + 'Verschieben</span>' : '') + '</div>' +
     '<div class="k-kopf"><label>Übung / Gerät<input ' + at('name') + ' value="' + esc(z.name) + '" autocomplete="off" enterkeyhint="next"></label>' +
     '<button class="weg" data-aktion="weg" ' + ziel + '>Entfernen</button></div>' +
     '<div class="k-werte">' + a.felder.map(f => '<label>' + feldLabel(a.s, f) + '<input ' + at(f) + ' inputmode="' + LABEL[f][1] + '" value="' + esc(z[f]) + '" autocomplete="off"></label>').join('') + '</div>' +
@@ -267,15 +306,15 @@ function karteHtml(a, z, i){
 }
 function zeichne(){
   $('#p-name').value = plan.n; $('#p-plan').value = plan.p || ''; $('#p-datum').value = plan.d; $('#p-betreuer').value = plan.b;
-  $('#abschnitte').innerHTML = ABSCHNITTE.map(a => {
-    const liste = plan.x[a.s];
-    return '<section class="abschnitt a-' + a.s + '"><h2>' + a.titel + '<small>' + liste.length + ' von ' + a.max + ' Zeilen</small></h2>' +
-      liste.map((z, i) => karteHtml(a, z, i)).join('') +
-      (liste.length < a.max ? '<button class="dazu" data-aktion="dazu" data-s="' + a.s + '">+ Übung hinzufügen</button>'
-                            : '<p class="voll">Alle ' + a.max + ' Zeilen belegt. Mehr passt nicht auf den Ausdruck.</p>') + '</section>';
-  }).join('');
+  const volle = ABSCHNITTE.filter(a => voll(a.s));
+  $('#uebungen').innerHTML =
+    '<div class="liste-kopf"><h2>Übungen</h2><small>Platz im Ausdruck: ' + ABSCHNITTE.map(a => a.titel + ' ' + zahlIn(a.s) + ' von ' + a.max).join(' · ') + '</small></div>' +
+    plan.u.map(karteHtml).join('') +
+    '<div class="dazu-zeile"><span>Übung hinzufügen:</span>' + ABSCHNITTE.map(a =>
+      '<button data-aktion="dazu" data-k="' + a.s + '"' + (voll(a.s) ? ' disabled' : '') + '>+ ' + a.eine + '</button>').join('') + '</div>' +
+    (volle.length ? '<p class="voll">' + volle.map(a => a.titel).join(', ') + ': alle Zeilen belegt. Mehr passt nicht auf den Ausdruck.</p>' : '');
   document.querySelectorAll('.zf').forEach(el => {
-    const zeile = plan.x[el.dataset.s][+el.dataset.i];
+    const zeile = plan.u[+el.dataset.i];
     el.feld = Kern.Zeichenfeld(el, () => { zeile.skizze = el.feld.wert; merken(true); });
     el.feld.wert = zeile.skizze;
   });
@@ -297,7 +336,7 @@ addEventListener('beforeunload', e => { if (geaendert) { e.preventDefault(); e.r
 
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t.dataset.f) plan.x[t.dataset.s][+t.dataset.i][t.dataset.f] = t.value;
+  if (t.dataset.f) plan.u[+t.dataset.i][t.dataset.f] = t.value;
   else if (t.id === 'p-name') plan.n = t.value;
   else if (t.id === 'p-plan') plan.p = t.value;
   else if (t.id === 'p-datum') plan.d = t.value;
@@ -308,19 +347,18 @@ document.addEventListener('input', e => {
 });
 
 /* ---------- Plan packen ---------- */
+// Nur die Felder der Kategorie: Wechselt eine Uebung z. B. von Freie Uebung zu Cardio, fallen Pause, Gewicht und Skizze weg
+const gehoert = (s, f) => f === 'name' || f === 'notiz' || BEREICH[s].felder.includes(f) || (f === 'skizze' && !!BEREICH[s].skizze);
 function planDaten(){
-  const x = {};
-  ABSCHNITTE.forEach(a => {
-    const z = plan.x[a.s].filter(r => r.name.trim()).map(r => REIHE.map(f => String(r[f] || '').trim()));
-    if (z.length) x[a.s] = z;
-  });
-  return { t:'plan', v:1, n: plan.n.trim(), p: (plan.p || '').trim(), d: plan.d.trim() || Kern.heute(), b: plan.b.trim(), x };
+  const liste = plan.u.filter(r => r.name.trim()).map(r => ({ s: r.s, z: REIHE.map(f => gehoert(r.s, f) ? String(r[f] || '').trim() : '') }));
+  const { x, o } = Kern.ausReihe(liste);   // nach Kategorie fuer die A4-Tabellen, o fuer die Reihenfolge
+  return { t:'plan', v:1, n: plan.n.trim(), p: (plan.p || '').trim(), d: plan.d.trim() || Kern.heute(), b: plan.b.trim(), x, o };
 }
 const anzahl = p => Object.values(p.x).reduce((n, z) => n + z.length, 0);
 function bereit(){
   const p = planDaten();
   if (!anzahl(p)) { toast('Erst mindestens eine Übung mit Namen eintragen.'); return null; }
-  const ohneName = ABSCHNITTE.some(a => plan.x[a.s].some(r => !r.name.trim() && REIHE.some(f => f !== 'name' && r[f])));
+  const ohneName = plan.u.some(r => !r.name.trim() && REIHE.some(f => f !== 'name' && r[f]));
   if (ohneName && !confirm('Übungen ohne Namen werden weggelassen. Trotzdem weiter?')) return null;
   return p;
 }
@@ -328,13 +366,16 @@ function planAus(daten){
   // Handy-Sicherung: seit den Splits mehrere Plaene (stand.plaene), genommen wird der gerade gezeigte
   const S = daten.t === 'stand' ? daten.stand : null;
   const s = S ? (S.plaene ? (S.plaene.find(x => x.key === S.aktiv) || S.plaene[0]) : S) : null, p = s ? s.plan : daten;
-  const neu = { id:null, n: p.n || '', p: (s ? s.p : p.p) || '', d: s ? Kern.heute() : (p.d || Kern.heute()), b: p.b || plan.b, x:{} };
-  const zuviel = [];
-  ABSCHNITTE.forEach(a => {
-    const liste = s ? s.ex.filter(e => e.s === a.s).map(e => [e.name, e.serien, e.dauer, e.pause, e.kg.length ? e.kg[e.kg.length - 1].w : '', e.notiz, e.skizze || ''])
-                    : (daten.x[a.s] || []);
-    liste.slice(a.max).forEach(z => zuviel.push(z[0]));
-    neu.x[a.s] = liste.slice(0, a.max).map(z => Object.fromEntries(REIHE.map((f, j) => [f, z[j] || ''])));
+  const neu = { id:null, n: p.n || '', p: (s ? s.p : p.p) || '', d: s ? Kern.heute() : (p.d || Kern.heute()), b: p.b || plan.b, u:[] };
+  // In der Reihenfolge des Plans (vom Handy: wie das Mitglied sie sortiert hat)
+  const reihe = s ? s.ex.map(e => ({ s: e.s, z: [e.name, e.serien, e.dauer, e.pause, e.kg.length ? e.kg[e.kg.length - 1].w : '', e.notiz, e.skizze || ''] }))
+                  : Kern.reihe(daten);
+  const je = {}, zuviel = [];
+  reihe.forEach(r => {
+    if (!BEREICH[r.s]) return;
+    je[r.s] = (je[r.s] || 0) + 1;
+    if (je[r.s] > BEREICH[r.s].max) { zuviel.push(r.z[0]); return; }
+    neu.u.push(Object.assign({ s: r.s }, Object.fromEntries(REIHE.map((f, j) => [f, r.z[j] || '']))));
   });
   if (zuviel.length) alert('Dafür reichen die Zeilen nicht: ' + zuviel.join(', '));
   return neu;
@@ -519,22 +560,35 @@ document.addEventListener('click', async ev => {
   const t = ev.target.closest('[data-aktion]');
   if (ev.target.classList.contains('dialog')) { ev.target.classList.remove('offen'); return; }
   if (!t) return;
-  const s = t.dataset.s, i = +t.dataset.i;
+  const i = +t.dataset.i;
   switch (t.dataset.aktion) {
     case 'dazu': {
-      plan.x[s].push(leereZeile()); merken(true); zeichne();
-      const felder = document.querySelectorAll('input[data-s="' + s + '"][data-f="name"]');
-      felder[felder.length - 1].focus();
+      const k = t.dataset.k; if (voll(k)) break;
+      plan.u.push(leereZeile(k)); merken(true); zeichne();
+      document.querySelector('input[data-i="' + (plan.u.length - 1) + '"][data-f="name"]').focus();
+      break;
+    }
+    case 'kat': {
+      const z = plan.u[i], k = t.dataset.k;
+      if (z.s === k || voll(k)) break;
+      // Was die neue Kategorie nicht hat, bleibt im Entwurf gemerkt (zurueckwechseln holt es wieder), kommt aber nicht in den Plan
+      const weg = ['pause', 'kg', 'skizze'].filter(f => z[f] && gehoert(z.s, f) && !gehoert(k, f));
+      z.s = k; merken(true); zeichne();
+      if (weg.length) {
+        const namen = weg.map(f => ({ pause:'Pause', kg:'Gewicht', skizze:'Skizze' }[f]));
+        toast(namen.slice(0, -1).join(', ') + (namen.length > 1 ? ' und ' : '') + namen[namen.length - 1] + ' gibt es bei ' + BEREICH[k].titel +
+              ' nicht. Wechselst du zurück, ist alles wieder da.');
+      }
       break;
     }
     case 'weg': {
-      const z = plan.x[s][i];
+      const z = plan.u[i];
       if (REIHE.some(f => z[f]) && !confirm('„' + (z.name || 'Diese Übung') + '“ entfernen?')) break;
-      plan.x[s].splice(i, 1); merken(true); zeichne(); break;
+      plan.u.splice(i, 1); merken(true); zeichne(); break;
     }
-    case 'rueck':  document.querySelector('.zf[data-s="' + s + '"][data-i="' + i + '"]').feld.rueckgaengig(); break;
+    case 'rueck':  document.querySelector('.zf[data-i="' + i + '"]').feld.rueckgaengig(); break;
     case 'leeren': {
-      const f = document.querySelector('.zf[data-s="' + s + '"][data-i="' + i + '"]').feld;
+      const f = document.querySelector('.zf[data-i="' + i + '"]').feld;
       if (!f.leer && confirm('Skizze löschen?')) f.leeren();
       break;
     }
@@ -583,6 +637,54 @@ document.addEventListener('click', async ev => {
   }
 });
 
+/* ---------- Reihenfolge per Ziehen ----------
+   Wie auf dem Handy: Pointer-Events statt HTML-Drag-and-drop, gezogen wird am Griff, ueber alle
+   Kategorien hinweg. Am oberen und unteren Rand scrollt die Seite mit. */
+let zug = null;
+document.addEventListener('pointerdown', ev => {
+  const g = ev.target.closest && ev.target.closest('[data-griff]');
+  if (!g || zug) return;
+  ev.preventDefault();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  const karte = g.closest('.karte'), karten = [...document.querySelectorAll('#uebungen .karte')];
+  const start = karten.indexOf(karte), r = karte.getBoundingClientRect();
+  zug = { karte, karten, start, ziel: start, pid: ev.pointerId, y: ev.clientY, y0: ev.clientY + scrollY,
+          schritt: r.height + 12, mitten: karten.map(k => { const q = k.getBoundingClientRect(); return q.top + scrollY + q.height / 2; }) };
+  try { g.setPointerCapture(ev.pointerId); } catch (e) {}
+  karte.classList.add('zieht'); document.body.classList.add('zieht-gerade');
+  zug.timer = setInterval(randScroll, 16);
+});
+function zugBewegen(){
+  const dy = zug.y + scrollY - zug.y0, c = zug.mitten[zug.start] + dy;
+  zug.karte.style.transform = 'translateY(' + dy + 'px)';
+  let ziel = zug.start;
+  zug.mitten.forEach((m, i) => { if (i > zug.start && m < c) ziel = Math.max(ziel, i); if (i < zug.start && m > c) ziel = Math.min(ziel, i); });
+  zug.ziel = ziel;
+  // Die anderen Karten ruecken um die Hoehe der gezogenen Karte auf
+  zug.karten.forEach((k, i) => {
+    if (i === zug.start) return;
+    const v = ziel > zug.start && i > zug.start && i <= ziel ? -zug.schritt : ziel < zug.start && i < zug.start && i >= ziel ? zug.schritt : 0;
+    k.style.transform = v ? 'translateY(' + v + 'px)' : '';
+  });
+}
+function randScroll(){
+  if (!zug) return;
+  const d = zug.y < 90 ? -12 : zug.y > innerHeight - 150 ? 12 : 0;   // unten steht die Leiste
+  if (d) { scrollBy(0, d); zugBewegen(); }
+}
+document.addEventListener('pointermove', ev => { if (zug && ev.pointerId === zug.pid) { zug.y = ev.clientY; zugBewegen(); } });
+function zugEnde(ev){
+  if (!zug || (ev && ev.pointerId !== zug.pid)) return;
+  clearInterval(zug.timer);
+  const { start, ziel } = zug;
+  zug = null;
+  document.body.classList.remove('zieht-gerade');
+  if (ziel !== start) { plan.u.splice(ziel, 0, plan.u.splice(start, 1)[0]); merken(true); }
+  zeichne();
+}
+document.addEventListener('pointerup', zugEnde);
+document.addEventListener('pointercancel', zugEnde);
+
 $('#datei').onchange = e => {
   const datei = e.target.files[0]; if (!datei) return;
   const r = new FileReader();
@@ -598,12 +700,12 @@ $('#datei').onchange = e => {
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
   } else {
     const entwurf = holen(sessionStorage, ENTWURF);
-    if (entwurf) { try { const d = JSON.parse(entwurf); plan = d.plan; geaendert = !!d.geaendert; } catch (e) {} }
+    if (entwurf) { try { const d = JSON.parse(entwurf); plan = aufListe(d.plan); geaendert = !!d.geaendert; } catch (e) {} }
   }
   zeichne();
 })();
 // Neue Fassung laden, wenn das Tablet zur Seite zurueckkehrt - aber nie mitten in ungespeicherter Arbeit
-const APP_STAND = '0076df3107';
+const APP_STAND = 'b181102273';
 Kern.aufNeuePruefen(APP_STAND, () => !geaendert);
 </script>
 </body>

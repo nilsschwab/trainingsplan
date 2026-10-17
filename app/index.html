@@ -17,7 +17,7 @@
 <style>
 /* ===================================================================
    BKS Bewegungszentrum — Trainingsplan fuers Handy
-   Fassung 16.10.2026
+   Fassung 17.10.2026
 
    Ohne Konto und ohne Datenbank:
    - Der Plan steckt im Link selbst, hinter dem #. Dieser Teil einer
@@ -34,9 +34,13 @@
    einen eigenen QR-Code und landet hier als eigener Plan, oben gibt es
    dann einen Umschalter. Zugeordnet wird ueber den Plannamen.
 
-   Neuer Plan vom Trainer: Uebungen werden ueber Abschnitt und Namen
-   wiedererkannt, ihr Gewichtsverlauf bleibt. Uebungen, die nicht mehr
-   im Plan stehen, wandern mit Verlauf ins Archiv.
+   Neuer Plan vom Trainer: Uebungen werden ueber den Namen wiedererkannt
+   (zuerst in derselben Kategorie), ihr Gewichtsverlauf bleibt. Uebungen,
+   die nicht mehr im Plan stehen, wandern mit Verlauf ins Archiv.
+
+   Seit 17.10.2026 eine Liste fuer alle Uebungen in der Reihenfolge vom
+   Tablet, auch gemischt (eine Freie Uebung vor einem Geraet). Jede Karte
+   zeigt ihre Kategorie, das Mitglied kann sie ueberall hinziehen.
 
    iPhone: Eine App auf dem Home-Bildschirm hat einen eigenen Speicher,
    getrennt von Safari. Deshalb gibt es "Link einfuegen" - damit kommt
@@ -74,11 +78,11 @@ input, textarea{ font:inherit; color:inherit; }
 .streifen p{ flex:1; }
 .streifen button{ font-weight:600; color:var(--indigo); white-space:nowrap; }
 
-/* Abschnitte und Uebungen */
-.abschnitt{ margin-top:22px; }
-.abschnitt h2{ display:flex; align-items:center; gap:10px; padding:0 18px 8px; font-size:13px; font-weight:600;
-  letter-spacing:.12em; text-transform:uppercase; color:var(--grau); }
-.abschnitt h2::before{ content:""; width:12px; height:12px; border-radius:3px; background:var(--akzent); }
+/* Uebungen: eine Liste, jede Karte mit ihrer Kategorie */
+.uebungen{ margin-top:18px; }
+.u-kat{ display:flex; align-items:center; gap:7px; margin-bottom:3px; font-size:12px; font-weight:600; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--grau); }
+.u-kat::before{ content:""; width:10px; height:10px; border-radius:3px; background:var(--akzent); }
 .a-c, .a-k{ --akzent:var(--hellblau); }
 .a-g, .a-f{ --akzent:var(--indigo); }
 .uebung{ background:var(--weiss); margin:0 14px 10px; border-radius:14px; padding:14px 14px 10px 16px;
@@ -193,7 +197,13 @@ h4{ margin-top:22px; font-size:13px; font-weight:600; letter-spacing:.12em; text
 .formular label{ display:block; margin-top:14px; font-size:13px; font-weight:600; color:var(--grau); }
 .formular input, .formular textarea{ display:block; width:100%; margin-top:5px; border:1.5px solid var(--linie); border-radius:10px; padding:10px 12px; font-size:16px; background:#fff; }
 .formular textarea{ min-height:96px; resize:vertical; }
-.formular .zwei{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.formular .zwei{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:10px; }
+/* Kategorie zuerst waehlen */
+.kat-wahl{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
+.kat-wahl button{ padding:10px 8px; border-radius:10px; border:1.5px solid var(--linie); background:#fff; font-size:15px; font-weight:600; color:var(--text2); }
+.kat-wahl button.an{ background:var(--indigo); border-color:var(--indigo); color:#fff; }
+.formular .titel-klein{ display:block; margin-top:14px; font-size:13px; font-weight:600; color:var(--grau); }
+.formular [hidden]{ display:none; }
 .formular input:focus, .formular textarea:focus, .stepper label:focus-within{ border-color:var(--indigo); outline:0; }
 .textknopf{ margin-top:14px; color:#b3261e; font-size:15px; padding:6px 0; }
 
@@ -221,10 +231,10 @@ h4{ margin-top:22px; font-size:13px; font-weight:600; letter-spacing:.12em; text
 
 <noscript><p style="padding:18px">Bitte JavaScript einschalten, sonst lässt sich der Plan nicht anzeigen.</p></noscript>
 
-<script src="../kern.js?v=0076df3107"></script>
+<script src="../kern.js?v=b181102273"></script>
 <script>
 const SPEICHER = 'bks-trainingsplan';
-const ABSCHNITTE = [['c', 'Cardio'], ['g', 'Geräte'], ['k', 'Koordination'], ['f', 'Freie Übungen']];
+const KATEGORIE = { c:'Cardio', g:'Gerät', k:'Koordination', f:'Freie Übung' };
 const MIT_GEWICHT = new Set(['g', 'f']);
 
 /* ---------- Hilfen ---------- */
@@ -331,11 +341,11 @@ function planEinfuegen(daten){
   // enthaelt, bekommt den Namen (Verlauf bleibt). So landet auch ein Plan, den eine fruehere Fassung
   // der App ohne Splits uebernommen hat, im richtigen Split (Fall Nils, 17.10.2026).
   const key = norm(daten.p);
-  const kennung = new Set();
-  ABSCHNITTE.forEach(([s]) => (daten.x[s] || []).forEach(z => kennung.add(s + '|' + norm(z[0]))));
+  const reihe = Kern.reihe(daten);   // alle Uebungen in der Reihenfolge vom Tablet, [{ s, z }]
+  const kennung = new Set(reihe.map(r => norm(r.z[0])));
   let P = stand.plaene.find(x => x.key === key);
   if (!P && key) {
-    const passt = U => U.ex.some(e => kennung.has(e.s + '|' + norm(e.name))) || (!U.ex.length && stand.plaene.length === 1);
+    const passt = U => U.ex.some(e => kennung.has(norm(e.name))) || (!U.ex.length && stand.plaene.length === 1);
     P = stand.plaene.find(U => U.key === '' && passt(U));
     if (P) P.key = key;
   }
@@ -347,12 +357,21 @@ function planEinfuegen(daten){
   // Archive der anderen Plaene: dort kann eine Uebung liegen, die eine fruehere Fassung beim Ersetzen weggelegt hat
   const fremdArchive = stand.plaene.filter(U => U !== P).map(U => U.archiv);
   let verlaufBleibt = false;
-  const neu = [];
-  // Wiedererkennen ueber Abschnitt und Namen - erst im Plan, dann im eigenen Archiv, dann in fremden Archiven
-  const finde = (liste, s, name) => { const i = liste.findIndex(e => e.s === s && norm(e.name) === norm(name)); return i >= 0 ? liste.splice(i, 1)[0] : null; };
-  const ausFremd = (s, name) => { for (const a of fremdArchive) { const e = finde(a, s, name); if (e) return e; } return null; };
-  ABSCHNITTE.forEach(([s]) => (daten.x[s] || []).forEach(([name, serien, dauer, pause, kg, notiz, skizze]) => {
-    const vorher = finde(alt, s, name) || finde(altArchiv, s, name) || ausFremd(s, name);
+  let neu = [];
+  // Wiedererkennen ueber den Namen - erst im Plan, dann im eigenen Archiv, dann in fremden Archiven.
+  // Erste Runde nur in derselben Kategorie, zweite nur nach Namen: Hat der Trainer eine Uebung
+  // in eine andere Kategorie gelegt (z. B. Geraet -> Freie Uebung), behaelt sie ihren Verlauf.
+  const quellen = [alt, altArchiv].concat(fremdArchive);
+  const vorherige = reihe.map(() => null);
+  [true, false].forEach(gleicheKat => reihe.forEach((r, i) => {
+    if (vorherige[i]) return;
+    for (const liste of quellen) {
+      const j = liste.findIndex(e => (!gleicheKat || e.s === r.s) && norm(e.name) === norm(r.z[0]));
+      if (j >= 0) { vorherige[i] = liste.splice(j, 1)[0]; return; }
+    }
+  }));
+  reihe.forEach(({ s, z: [name, serien, dauer, pause, kg, notiz, skizze] }, i) => {
+    const vorher = vorherige[i];
     const verlauf = vorher ? vorher.kg.slice() : [];
     if (verlauf.length) verlaufBleibt = true;
     // Neues Gewicht vom Trainer kommt dazu, wenn es vom zuletzt eingetragenen abweicht
@@ -361,9 +380,14 @@ function planEinfuegen(daten){
     verlauf.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
     neu.push({ id: vorher ? vorher.id : neueId(), s, name, serien, dauer, pause, notiz, skizze: skizze || '',
                kg: verlauf.map(({ d, w, q }) => ({ d, w, q })) });
-  }));
-  // Hat das Mitglied die Reihenfolge selbst geaendert, bleibt sie; neue Uebungen kommen ans Ende ihres Bereichs
-  if (P.eigeneReihenfolge) neu.sort((a, b) => (reihenfolge.has(a.id) ? reihenfolge.get(a.id) : 1e6) - (reihenfolge.has(b.id) ? reihenfolge.get(b.id) : 1e6));
+  });
+  // Hat das Mitglied die Reihenfolge selbst geaendert, bleibt sie. Neue Uebungen kommen hinter die,
+  // die beim Trainer davor steht (die erste an den Anfang).
+  if (P.eigeneReihenfolge) {
+    const sortiert = neu.filter(e => reihenfolge.has(e.id)).sort((a, b) => reihenfolge.get(a.id) - reihenfolge.get(b.id));
+    neu.forEach((e, i) => { if (!reihenfolge.has(e.id)) sortiert.splice(i ? sortiert.indexOf(neu[i - 1]) + 1 : 0, 0, e); });
+    neu = sortiert;
+  }
   // Was nicht mehr im Plan steht, behaelt seinen Verlauf im Archiv
   P.archiv = altArchiv.concat(alt.filter(e => e.kg.length).map(e => Object.assign({}, e, { bis: datum })));
   P.ex = neu;
@@ -464,20 +488,19 @@ function planAnsicht(){
     planWahl() + scanKnopf('QR-Code vom Trainer scannen');
   if (streifenZeigen()) h += '<div class="streifen"><p>Damit Ihre Einträge dauerhaft bleiben: den Plan als App auf den Home-Bildschirm legen.</p>' +
     '<button data-aktion="anleitung">So geht’s</button><button data-aktion="streifen-weg" aria-label="Ausblenden">✕</button></div>';
-  ABSCHNITTE.forEach(([s, titel]) => {
-    const liste = P.ex.filter(e => e.s === s);
-    h += '<section class="abschnitt a-' + s + '"><h2>' + titel + '</h2>';
-    liste.forEach(e => {
-      h += '<article class="uebung" data-id="' + e.id + '"><div class="u-kopf"><h3>' + esc(e.name) + '</h3>' + gewichtKnopf(e) + '</div>' +
-        wertChips(e) + (e.skizze ? '<div class="skizze">' + Kern.skizzeSvg(e.skizze) + '</div>' : '') +
-        (e.notiz ? '<p class="notiz">' + esc(e.notiz) + '</p>' : '') +
-        '<div class="u-fuss">' +
-          (liste.length > 1 ? '<span class="griff" data-griff="' + e.id + '" aria-label="Übung verschieben">' +
-            '<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>Verschieben</span>' : '') +
-          '<button data-aktion="bearbeiten" data-id="' + e.id + '">Ändern</button></div></article>';
-    });
-    h += '<button class="dazu" data-aktion="neu" data-s="' + s + '">+ Übung hinzufügen</button></section>';
+  // Eine Liste in der Reihenfolge des Plans; die Kategorie steht auf jeder Karte
+  h += '<section class="uebungen">';
+  P.ex.forEach(e => {
+    h += '<article class="uebung a-' + e.s + '" data-id="' + e.id + '"><div class="u-kopf"><div><p class="u-kat">' + (KATEGORIE[e.s] || '') + '</p>' +
+      '<h3>' + esc(e.name) + '</h3></div>' + gewichtKnopf(e) + '</div>' +
+      wertChips(e) + (e.skizze ? '<div class="skizze">' + Kern.skizzeSvg(e.skizze) + '</div>' : '') +
+      (e.notiz ? '<p class="notiz">' + esc(e.notiz) + '</p>' : '') +
+      '<div class="u-fuss">' +
+        (P.ex.length > 1 ? '<span class="griff" data-griff="' + e.id + '" aria-label="Übung verschieben">' +
+          '<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>Verschieben</span>' : '') +
+        '<button data-aktion="bearbeiten" data-id="' + e.id + '">Ändern</button></div></article>';
   });
+  h += '<button class="dazu" data-aktion="neu">+ Übung hinzufügen</button></section>';
   return h + fuss();
 }
 
@@ -655,18 +678,22 @@ function gewichtBlatt(id){
       '<button class="textknopf" data-aktion="gewicht-zurueck" data-id="' + id + '">Letzten Eintrag löschen</button>' : ''));
 }
 
-function bearbeitenBlatt(id, s){
-  const e = id ? uebung(id) : { name:'', serien:'', dauer:'', pause:'', notiz:'', kg:[], s };
-  const mitKgFeld = !id && MIT_GEWICHT.has(s);
+// Kategorie zuerst (Wunsch Nils, 17.10.2026); danach richten sich die Felder darunter
+const MIT_PAUSE = new Set(['g', 'f']);
+function bearbeitenBlatt(id){
+  const e = id ? uebung(id) : { name:'', serien:'', dauer:'', pause:'', notiz:'', kg:[], s:'g' };
   blatt(blattKopf(id ? 'Übung ändern' : 'Neue Übung') +
     '<div class="formular">' +
+    '<span class="titel-klein">Kategorie</span><div class="kat-wahl" role="radiogroup" aria-label="Kategorie">' +
+      Object.keys(KATEGORIE).map(k => '<button role="radio" aria-checked="' + (k === e.s) + '"' + (k === e.s ? ' class="an"' : '') +
+        ' data-aktion="kat-wahl" data-k="' + k + '">' + KATEGORIE[k] + '</button>').join('') + '</div>' +
     '<label>Übung oder Gerät<input id="f-name" value="' + esc(e.name) + '"></label>' +
     '<div class="zwei"><label>Serien<input id="f-serien" inputmode="numeric" value="' + esc(e.serien) + '"></label>' +
-    '<label>' + dauerLabel(e.s || s) + '<input id="f-dauer" value="' + esc(e.dauer) + '"></label>' +
-    '<label>Pause<input id="f-pause" value="' + esc(e.pause) + '"></label></div>' +
-    (mitKgFeld ? '<label>Startgewicht in kg<input id="f-kg" inputmode="decimal"></label>' : '') +
+    '<label id="l-dauer"><span>' + dauerLabel(e.s) + '</span><input id="f-dauer" value="' + esc(e.dauer) + '"></label>' +
+    '<label id="l-pause"' + (MIT_PAUSE.has(e.s) || e.pause ? '' : ' hidden') + '>Pause<input id="f-pause" value="' + esc(e.pause) + '"></label></div>' +
+    (!id ? '<label id="l-kg"' + (MIT_GEWICHT.has(e.s) ? '' : ' hidden') + '>Startgewicht in kg<input id="f-kg" inputmode="decimal"></label>' : '') +
     '<label>Hinweis<textarea id="f-notiz">' + esc(e.notiz) + '</textarea></label>' +
-    '<button class="haupt-knopf" data-aktion="bearbeiten-sichern" data-id="' + (id || '') + '" data-s="' + (s || '') + '">Speichern</button>' +
+    '<button class="haupt-knopf" data-aktion="bearbeiten-sichern" data-id="' + (id || '') + '">Speichern</button>' +
     (id ? '<button class="textknopf" data-aktion="entfernen" data-id="' + id + '">Übung aus dem Plan nehmen</button>' : '') +
     '</div>');
 }
@@ -715,13 +742,22 @@ document.addEventListener('click', async ev => {
       break;
     }
     case 'bearbeiten': bearbeitenBlatt(id); break;
-    case 'neu': bearbeitenBlatt(null, t.dataset.s); break;
+    case 'neu': bearbeitenBlatt(null); break;
+    case 'kat-wahl': {
+      const k = t.dataset.k;
+      document.querySelectorAll('.kat-wahl button').forEach(b => { b.classList.toggle('an', b === t); b.setAttribute('aria-checked', b === t); });
+      $('#l-dauer span').textContent = dauerLabel(k);
+      $('#l-pause').hidden = !MIT_PAUSE.has(k) && !$('#f-pause').value.trim();
+      if ($('#l-kg')) $('#l-kg').hidden = !MIT_GEWICHT.has(k);
+      break;
+    }
     case 'bearbeiten-sichern': {
-      const wert = k => ($('#f-' + k) ? $('#f-' + k).value.trim() : '');
+      const wert = k => ($('#f-' + k) && !$('#f-' + k).closest('[hidden]') ? $('#f-' + k).value.trim() : '');
       if (!wert('name')) { toast('Bitte einen Namen für die Übung eintragen.'); break; }
-      if (id) Object.assign(uebung(id), { name: wert('name'), serien: wert('serien'), dauer: wert('dauer'), pause: wert('pause'), notiz: wert('notiz') });
-      else aktiverPlan().ex.push({ id: neueId(), s: t.dataset.s, name: wert('name'), serien: wert('serien'), dauer: wert('dauer'), pause: wert('pause'),
-                           notiz: wert('notiz'), kg: wert('kg') ? [{ d: heuteIso(), w: wert('kg'), q: 'm' }] : [] });
+      const s = $('.kat-wahl .an').dataset.k;
+      const felder = { s, name: wert('name'), serien: wert('serien'), dauer: wert('dauer'), pause: wert('pause'), notiz: wert('notiz') };
+      if (id) Object.assign(uebung(id), felder);
+      else aktiverPlan().ex.push(Object.assign({ id: neueId() }, felder, { kg: wert('kg') ? [{ d: heuteIso(), w: wert('kg'), q: 'm' }] : [] }));
       speichern(); blattZu(); zeige(); break;
     }
     case 'entfernen': {
@@ -761,7 +797,7 @@ document.addEventListener('click', async ev => {
 
 /* ---------- Reihenfolge per Ziehen ----------
    Mit Pointer-Events statt HTML-Drag-and-drop, das auf Handys nicht zuverlaessig geht. Gezogen wird am Griff,
-   innerhalb eines Bereichs (Cardio, Geraete ...). Am oberen und unteren Rand scrollt die Seite mit. */
+   ueber alle Kategorien hinweg (seit 17.10.2026). Am oberen und unteren Rand scrollt die Seite mit. */
 let zug = null;
 document.addEventListener('pointerdown', ev => {
   const g = ev.target.closest && ev.target.closest('[data-griff]');
@@ -801,10 +837,8 @@ function zugEnde(ev){
   zug = null;
   document.body.classList.remove('zieht-gerade');
   if (ziel !== start) {
-    const P = aktiverPlan(), e = P.ex.find(x => x.id === id);
-    const bereich = P.ex.filter(x => x.s === e.s);
-    bereich.splice(start, 1); bereich.splice(ziel, 0, e);
-    let k = 0; P.ex = P.ex.map(x => x.s === e.s ? bereich[k++] : x);
+    const P = aktiverPlan(), von = P.ex.findIndex(x => x.id === id);
+    P.ex.splice(ziel, 0, P.ex.splice(von, 1)[0]);
     P.eigeneReihenfolge = true;   // bleibt auch, wenn der Trainer einen neuen Plan schickt
     speichern();
   }
@@ -825,7 +859,7 @@ async function start(){
 addEventListener('hashchange', start);
 start();
 // Stand dieser Fassung, traegt veroeffentlichen.ps1 ein (lokal bleibt der Platzhalter stehen)
-const APP_STAND = '0076df3107';
+const APP_STAND = 'b181102273';
 Kern.aufNeuePruefen(APP_STAND);
 </script>
 </body>

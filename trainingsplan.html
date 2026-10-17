@@ -291,7 +291,7 @@ td.k .ce{ font-size:10pt; color:var(--tinte); }
   </div>
 </div>
 
-<script src="kern.js?v=0076df3107"></script>
+<script src="kern.js?v=b181102273"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 
 <script>
@@ -378,6 +378,7 @@ function sammeln(){
   return d;
 }
 function setzen(d){
+  reiheGeladen = '';
   document.querySelectorAll('[data-k]').forEach(f => {
     const v = d[f.dataset.k] !== undefined ? d[f.dataset.k] : '';
     if (f.isContentEditable) f.innerText = v; else f.value = v;
@@ -447,6 +448,8 @@ function planEinsetzen(daten, alsAnpassung){
   });
   document.body.classList.remove('beispiel');
   setzen(d);
+  // Reihenfolge ueber alle Kategorien merken (vom Tablet oder Handy); der Ausdruck bleibt nach Kategorie sortiert
+  reiheGeladen = s ? s.ex.map(e => e.s).join('') : (daten.o || '');
   if (zuviel.length) alert('Dafür reichen die Zeilen nicht, bitte von Hand ergänzen: ' + zuviel.join(', '));
 }
 document.getElementById('b-laden').onchange = e => {
@@ -471,6 +474,10 @@ document.getElementById('b-leeren').onclick = () => {
    Dieser Teil einer Adresse geht nie an den Server - es wird nichts hochgeladen. */
 const KURZ = { cardio:'c', geraete:'g', koordination:'k', frei:'f' };
 const FELDER = ['name', 'serien', 'dauer', 'pause', 'kg', 'notiz', 'skizze'];
+/* Reihenfolge ueber alle Kategorien aus dem geoeffneten Plan (o, siehe kern.js). Auf dem Papier
+   stehen die Kategorien in festen Tabellen; wird der Plan hier gespeichert oder fuers Handy
+   gepackt, bleibt die Reihenfolge vom Tablet trotzdem erhalten. Neue Zeilen kommen ans Ende. */
+var reiheGeladen = '';
 
 // Nur Zeilen mit Uebungsnamen; jede Zeile als [Name, Serien, Wdh, Pause, Gewicht, Hinweis, Skizze]
 function planDaten(){
@@ -483,7 +490,8 @@ function planDaten(){
     }
     if (zeilen.length) x[KURZ[id]] = zeilen;
   });
-  return { t:'plan', v:1, n: wert(feld('name')), p: wert(feld('plan')), d: wert(feld('datum')) || heute(), b: wert(feld('betreuer')), x };
+  const { o } = Kern.ausReihe(Kern.reihe({ x, o: reiheGeladen }));
+  return { t:'plan', v:1, n: wert(feld('name')), p: wert(feld('plan')), d: wert(feld('datum')) || heute(), b: wert(feld('betreuer')), x, o };
 }
 
 let handyLink = '';

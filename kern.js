@@ -1,6 +1,6 @@
 /* ===================================================================
    BKS Trainingsplan — gemeinsamer Kern
-   Fassung 16.10.2026
+   Fassung 17.10.2026
 
    Genutzt von:
    - trainingsplan.html   PC: A4-Vorlage zum Drucken und Speichern
@@ -11,7 +11,8 @@
    - packen / auspacken: Plan -> JSON -> deflate -> base64url ("1..."),
      so passt er in einen Link, einen QR-Code oder eine Akten-Datei.
      Plan: { t:'plan', v:1, n:Name, p:Planname (z. B. "Oberkoerper", leer = ohne), d:Datum, b:"Erstellt von",
-             x:{ c|g|k|f: [[Name, Serien, Wdh, Pause, Gewicht, Hinweis, Skizze], ...] } }
+             x:{ c|g|k|f: [[Name, Serien, Wdh, Pause, Gewicht, Hinweis, Skizze], ...] },
+             o:"cggfgk" (Reihenfolge ueber alle Bereiche, seit 17.10.2026; siehe reihe) }
    - Skizzen: Striche auf einem Raster von 256 x 121 Punkten (das
      Seitenverhaeltnis des Skizzenfelds im Ausdruck, 58 x 27,5 mm),
      kompakt als Text: je Strich vier Zeichen Startpunkt, dann zwei
@@ -180,6 +181,30 @@ var Kern = (function () {
     return { link: kurz, lang: link, ohneSkizzen: true };
   }
 
+  /* ---------- Reihenfolge ueber alle Bereiche (seit 17.10.2026) ----------
+     Wunsch Nils: eine Freie Uebung auch vor eine Geraeteuebung schieben koennen. Im Plan stehen
+     die Uebungen weiter nach Bereich (x.c, x.g, x.k, x.f) - so liest ihn eine aeltere Fassung der
+     App, und die A4-Vorlage fuellt damit ihre festen Tabellen. Dazu kommt o: ein Buchstabe je
+     Uebung in der Reihenfolge des Plans. "cggfg" heisst: Cardio, zwei Geraete, die erste Freie
+     Uebung, das dritte Geraet. Ohne o (aeltere Plaene): Cardio, Geraete, Koordination, Freie Uebungen. */
+  var BEREICHE = ['c', 'g', 'k', 'f'];
+  // Plan -> [{ s: Bereich, z: Zeile }] in der Reihenfolge des Plans
+  function reihe(plan) {
+    var x = plan.x || {}, pos = { c: 0, g: 0, k: 0, f: 0 }, liste = [];
+    String(plan.o || '').split('').forEach(function (s) {
+      if (pos.hasOwnProperty(s) && x[s] && pos[s] < x[s].length) liste.push({ s: s, z: x[s][pos[s]++] });
+    });
+    // Was o nicht nennt, kommt in der alten Reihenfolge ans Ende
+    BEREICHE.forEach(function (s) { (x[s] || []).slice(pos[s]).forEach(function (z) { liste.push({ s: s, z: z }); }); });
+    return liste;
+  }
+  // [{ s, z }] -> { x, o }
+  function ausReihe(liste) {
+    var x = {}, o = '';
+    liste.forEach(function (e) { (x[e.s] = x[e.s] || []).push(e.z); o += e.s; });
+    return { x: x, o: o };
+  }
+
   /* ---------- Akten-Datei ----------
      Enthaelt nur den gepackten Plan. Doppelklick am PC: sucht im eigenen Pfad den
      OneDrive-Ordner und oeffnet von dort die Vorlage - klappt auf jedem PC, egal unter
@@ -237,7 +262,8 @@ var Kern = (function () {
     ORDNER: ORDNER, OEFFENTLICH: OEFFENTLICH, ONLINE: ONLINE, BASIS: BASIS, QR_MAX: QR_MAX,
     packen: packen, auspacken: auspacken, codeAus: codeAus,
     skizzePacken: skizzePacken, skizzeAuspacken: skizzeAuspacken, skizzeSvg: skizzeSvg, Zeichenfeld: Zeichenfeld,
-    handyLink: handyLink, ohneSkizzen: ohneSkizzen, aktenDatei: aktenDatei, heute: heute, dateiname: dateiname,
+    handyLink: handyLink, ohneSkizzen: ohneSkizzen, reihe: reihe, ausReihe: ausReihe,
+    aktenDatei: aktenDatei, heute: heute, dateiname: dateiname,
     aufNeuePruefen: aufNeuePruefen
   };
 })();
