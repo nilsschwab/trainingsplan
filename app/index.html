@@ -231,7 +231,7 @@ h4{ margin-top:22px; font-size:13px; font-weight:600; letter-spacing:.12em; text
 
 <noscript><p style="padding:18px">Bitte JavaScript einschalten, sonst lässt sich der Plan nicht anzeigen.</p></noscript>
 
-<script src="../kern.js?v=b181102273"></script>
+<script src="../kern.js?v=5d2865b26f"></script>
 <script>
 const SPEICHER = 'bks-trainingsplan';
 const KATEGORIE = { c:'Cardio', g:'Gerät', k:'Koordination', f:'Freie Übung' };
@@ -688,7 +688,8 @@ function bearbeitenBlatt(id){
       Object.keys(KATEGORIE).map(k => '<button role="radio" aria-checked="' + (k === e.s) + '"' + (k === e.s ? ' class="an"' : '') +
         ' data-aktion="kat-wahl" data-k="' + k + '">' + KATEGORIE[k] + '</button>').join('') + '</div>' +
     '<label>Übung oder Gerät<input id="f-name" value="' + esc(e.name) + '"></label>' +
-    '<div class="zwei"><label>Serien<input id="f-serien" inputmode="numeric" value="' + esc(e.serien) + '"></label>' +
+    // Cardio ohne Serien (Nils, 17.10.2026); steht noch ein alter Wert drin, bleibt das Feld zum Leeren sichtbar
+    '<div class="zwei"><label id="l-serien"' + (e.s !== 'c' || e.serien ? '' : ' hidden') + '>Serien<input id="f-serien" inputmode="numeric" value="' + esc(e.serien) + '"></label>' +
     '<label id="l-dauer"><span>' + dauerLabel(e.s) + '</span><input id="f-dauer" value="' + esc(e.dauer) + '"></label>' +
     '<label id="l-pause"' + (MIT_PAUSE.has(e.s) || e.pause ? '' : ' hidden') + '>Pause<input id="f-pause" value="' + esc(e.pause) + '"></label></div>' +
     (!id ? '<label id="l-kg"' + (MIT_GEWICHT.has(e.s) ? '' : ' hidden') + '>Startgewicht in kg<input id="f-kg" inputmode="decimal"></label>' : '') +
@@ -747,6 +748,7 @@ document.addEventListener('click', async ev => {
       const k = t.dataset.k;
       document.querySelectorAll('.kat-wahl button').forEach(b => { b.classList.toggle('an', b === t); b.setAttribute('aria-checked', b === t); });
       $('#l-dauer span').textContent = dauerLabel(k);
+      $('#l-serien').hidden = k === 'c' && !$('#f-serien').value.trim();
       $('#l-pause').hidden = !MIT_PAUSE.has(k) && !$('#f-pause').value.trim();
       if ($('#l-kg')) $('#l-kg').hidden = !MIT_GEWICHT.has(k);
       break;
@@ -859,7 +861,7 @@ async function start(){
 addEventListener('hashchange', start);
 start();
 // Stand dieser Fassung, traegt veroeffentlichen.ps1 ein (lokal bleibt der Platzhalter stehen)
-const APP_STAND = 'b181102273';
+const APP_STAND = '5d2865b26f';
 Kern.aufNeuePruefen(APP_STAND);
 </script>
 </body>

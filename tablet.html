@@ -52,6 +52,12 @@
    Ausdrucks (Cardio 4, Geraete 8, Koordination 5, Freie Uebungen 6),
    damit der Plan auf zwei Seiten passt.
 
+   Antippen statt Tippen (17.10.2026, Wunsch Nils): "Uebung / Geraet"
+   schlaegt bei Cardio vier Geraete vor, bei Geraete erst Ober- oder
+   Unterkoerper, dann die Geraete. Serien 1-6, Wdh 1-30, Cardio-Minuten
+   1-30, Pause 30/60/90/120 s. Frei bleiben Gewicht und "Wdh / Dauer"
+   bei Koordination. Cardio hat keine Serien mehr.
+
    Der Entwurf, an dem gerade gearbeitet wird, liegt zusaetzlich im
    Sitzungsspeicher dieses Tabs: Ein versehentliches Neuladen verliert
    nichts.
@@ -111,6 +117,26 @@ body.zieht-gerade{ user-select:none; -webkit-user-select:none; }
 .weg{ height:50px; padding:0 14px; color:#b3261e; font-size:15px; border-radius:10px; }
 .k-werte{ display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
 .k-werte input{ text-align:center; font-variant-numeric:tabular-nums; }
+/* Felder mit Auswahl: antippen statt tippen, kleiner Pfeil rechts */
+.k-werte input[readonly]{ cursor:pointer; padding:10px 30px; background-repeat:no-repeat; background-position:right 12px center;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236a7080' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+
+/* Auswahl zum Antippen: Zahlen oder Uebungsnamen unter dem Feld */
+.auswahl{ position:absolute; z-index:8; background:#fff; border:1.5px solid var(--linie); border-radius:14px; padding:12px;
+  box-shadow:0 14px 36px rgba(18,20,28,.18); }
+.auswahl[hidden]{ display:none; }
+.a-kopf{ display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:14px; }
+.a-kopf b{ margin-right:auto; font-weight:600; color:var(--grau); letter-spacing:.02em; }
+.a-kopf button{ color:var(--indigo); font-weight:600; font-size:14px; padding:6px 10px; border-radius:8px; }
+.a-zahlen{ display:grid; gap:6px; grid-template-columns:repeat(var(--sp), var(--b)); }
+.a-zahlen button, .a-namen button, .a-gruppen button{ height:48px; border-radius:10px; background:var(--feld); color:var(--tinte);
+  font-weight:600; font-size:17px; font-variant-numeric:tabular-nums; }
+.a-gruppen{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.a-gruppen button{ background:#fff; border:1.5px solid var(--linie); color:var(--indigo); }
+.a-gruppen + .a-namen{ margin-top:10px; padding-top:10px; border-top:1px solid var(--linie); }
+.a-namen{ display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:6px; }
+.a-namen button{ text-align:left; padding:0 14px; font-size:16px; }
+.a-zahlen button.an, .a-namen button.an, .a-gruppen button.an{ background:var(--indigo); border-color:var(--indigo); color:#fff; }
 
 .k-skizze .lbl{ display:block; font-size:13px; font-weight:600; color:var(--grau); margin-bottom:5px; }
 .zf{ width:100%; max-width:620px; aspect-ratio:256 / 121; border:1.5px solid var(--linie); border-radius:12px; overflow:hidden;
@@ -180,6 +206,7 @@ body.zieht-gerade{ user-select:none; -webkit-user-select:none; }
 @media (max-width:640px){
   .person{ grid-template-columns:1fr 1fr; }
   .k-werte{ grid-template-columns:repeat(2, 1fr); }
+  .a-zahlen{ grid-template-columns:repeat(auto-fill, minmax(52px, 1fr)); }
 }
 </style>
 </head>
@@ -240,13 +267,14 @@ body.zieht-gerade{ user-select:none; -webkit-user-select:none; }
 </div></div>
 
 <div class="toast" id="toast"></div>
+<div class="auswahl" id="auswahl" hidden></div>
 
-<script src="kern.js?v=b181102273"></script>
+<script src="kern.js?v=5d2865b26f"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 // max: Zeilen dieser Kategorie im A4-Ausdruck
 const ABSCHNITTE = [
-  { s:'c', titel:'Cardio',        eine:'Cardio',       max:4, felder:['serien', 'dauer'] },
+  { s:'c', titel:'Cardio',        eine:'Cardio',       max:4, felder:['dauer'] },   // ohne Serien (Nils, 17.10.2026)
   { s:'g', titel:'Geräte',        eine:'Gerät',        max:8, felder:['serien', 'dauer', 'pause', 'kg'] },
   { s:'k', titel:'Koordination',  eine:'Koordination', max:5, felder:['serien', 'dauer'] },
   { s:'f', titel:'Freie Übungen', eine:'Freie Übung',  max:6, felder:['serien', 'dauer', 'pause', 'kg'], skizze:true },
@@ -257,6 +285,24 @@ const LABEL = { serien:['Serien', 'numeric'], dauer:['Wdh / Dauer', 'text'], pau
 // Feld "dauer" je Bereich: Cardio nur Minuten, Geraete und Freie Uebungen nur Wdh, Koordination beides (Nils, 17.10.2026)
 const feldLabel = (s, f) => f !== 'dauer' ? LABEL[f][0] : s === 'c' ? 'Dauer (Min)' : s === 'k' ? 'Wdh / Dauer' : 'Wdh';
 const REIHE = ['name', 'serien', 'dauer', 'pause', 'kg', 'notiz', 'skizze'];   // Reihenfolge im gepackten Plan
+/* Zum Antippen statt Tippen (Wunsch Nils, 17.10.2026). Gewicht und "Wdh / Dauer" (Koordination)
+   bleiben frei. "Andere Angabe eintippen" im Auswahlfeld erlaubt trotzdem z. B. "10-12". */
+const bis = n => Array.from({ length: n }, (_, k) => String(k + 1));
+const PAUSEN = ['30 s', '60 s', '90 s', '120 s'];   // immer Sekunden
+function zahlenWahl(s, f){
+  if (f === 'serien') return { titel:'Serien', werte: bis(6) };
+  if (f === 'pause')  return { titel:'Pause in Sekunden', werte: PAUSEN };
+  if (f === 'dauer' && s === 'c') return { titel:'Dauer in Minuten', werte: bis(30) };
+  if (f === 'dauer' && s !== 'k') return { titel:'Wiederholungen', werte: bis(30) };
+  return null;
+}
+// Vorschlaege fuer "Uebung / Geraet", nach Bereich; getippt werden kann weiterhin alles
+const NAMEN = {
+  c: [['', ['Laufband', 'Fahrrad', 'Sitzfahrrad', 'Crosstrainer']]],
+  g: [['Oberkörper',  ['Butterfly Reverse', 'Shoulder Press', 'Abdominal Flexion', 'Abdominal Torsion', 'Back Extensions',
+                       'Back Pull', 'Lat Pull', 'Seated Dip', 'Chest Press']],
+      ['Unterkörper', ['Squat Press', 'Abductor', 'Adductor', 'Leg Extension', 'Leg Flexion', 'Hip Extension']]],
+};
 const ENTWURF = 'bks-tablet-entwurf', BETREUER = 'bks-tablet-betreuer';
 const BIB = 'bks-tablet-plaene', GESICHERT = 'bks-tablet-gesichert';
 const ERINNERN_TAGE = 30;
@@ -298,13 +344,19 @@ function karteHtml(z, i){
     (plan.u.length > 1 ? '<span class="griff" data-griff="' + i + '" aria-label="Übung verschieben">' + GRIFF + 'Verschieben</span>' : '') + '</div>' +
     '<div class="k-kopf"><label>Übung / Gerät<input ' + at('name') + ' value="' + esc(z.name) + '" autocomplete="off" enterkeyhint="next"></label>' +
     '<button class="weg" data-aktion="weg" ' + ziel + '>Entfernen</button></div>' +
-    '<div class="k-werte">' + a.felder.map(f => '<label>' + feldLabel(a.s, f) + '<input ' + at(f) + ' inputmode="' + LABEL[f][1] + '" value="' + esc(z[f]) + '" autocomplete="off"></label>').join('') + '</div>' +
+    '<div class="k-werte">' + a.felder.map(f => {
+      // Mit Auswahl: nur lesbar, ohne Tastatur - Antippen klappt die Zahlen auf
+      const w = zahlenWahl(a.s, f);
+      return '<label>' + feldLabel(a.s, f) + '<input ' + at(f) + (w ? ' data-aktion="wahl" readonly inputmode="none"' : ' inputmode="' + LABEL[f][1] + '"') +
+        ' value="' + esc(z[f]) + '" autocomplete="off"></label>';
+    }).join('') + '</div>' +
     '<label>Hinweis<textarea ' + at('notiz') + ' rows="2">' + esc(z.notiz) + '</textarea></label>' +
     (a.skizze ? '<div class="k-skizze"><span class="lbl">Skizze (mit Stift oder Finger)</span><div class="zf" ' + ziel + '></div>' +
       '<div class="zf-knoepfe"><button data-aktion="rueck" ' + ziel + '>Rückgängig</button><button data-aktion="leeren" ' + ziel + '>Skizze löschen</button></div></div>' : '') +
     '</article>';
 }
 function zeichne(){
+  wahlZu();
   $('#p-name').value = plan.n; $('#p-plan').value = plan.p || ''; $('#p-datum').value = plan.d; $('#p-betreuer').value = plan.b;
   const volle = ABSCHNITTE.filter(a => voll(a.s));
   $('#uebungen').innerHTML =
@@ -327,6 +379,76 @@ function standZeigen(){
   $('#b-speichern').classList.toggle('ungesichert', geaendert);
 }
 
+/* ---------- Auswahl zum Antippen ----------
+   Ein Feld unter der Eingabe, so breit wie die Karte: Zahlen (Serien, Wdh, Minuten, Pause) oder
+   Uebungsnamen (Cardio direkt, Geraete erst Ober- oder Unterkoerper). Beim Namen bleibt die
+   Tastatur offen, Tippen filtert die Vorschlaege. */
+let wahl = null;   // { el, i, f, art: 'zahl' | 'name', gruppe, getippt }
+function wahlZu(){ if (wahl) { $('#auswahl').hidden = true; wahl = null; } }
+function wahlPlatzieren(){
+  const pop = $('#auswahl'), k = wahl.el.closest('.karte').getBoundingClientRect(), r = wahl.el.getBoundingClientRect();
+  pop.style.left = (k.left + scrollX + 14) + 'px';
+  pop.style.width = (k.width - 28) + 'px';
+  pop.style.top = (r.bottom + scrollY + 6) + 'px';
+}
+function wahlOeffnen(el, art){
+  const i = +el.dataset.i, z = plan.u[i];
+  // Steht schon ein Geraet aus der Liste drin, ist seine Gruppe gleich offen
+  const gruppe = art === 'name' ? (NAMEN[z.s].find(([, l]) => l.some(n => norm(n) === norm(z.name))) || [null])[0] : null;
+  wahl = { el, i, f: el.dataset.f, art, gruppe, getippt: false };
+  wahlZeigen();
+}
+function wahlZeigen(){
+  const pop = $('#auswahl'), z = plan.u[wahl.i];
+  if (wahl.art === 'zahl') {
+    const w = zahlenWahl(z.s, wahl.f), jetzt = String(z[wahl.f] || '').trim();
+    const gleich = v => wahl.f === 'pause' ? parseInt(v) === parseInt(jetzt) : jetzt === v;
+    pop.innerHTML = '<div class="a-kopf"><b>' + w.titel + '</b>' + (jetzt ? '<button data-wahl-aktion="leeren">Leeren</button>' : '') +
+        '<button data-wahl-aktion="tippen">Andere Angabe eintippen</button></div>' +
+      '<div class="a-zahlen" style="--sp:' + Math.min(w.werte.length, 10) + ';--b:' + (w.werte.length <= 6 ? '88px' : '1fr') + '">' +
+      w.werte.map(v => '<button data-wert="' + esc(v) + '"' + (gleich(v) ? ' class="an"' : '') + '>' + esc(v) + '</button>').join('') + '</div>';
+  } else {
+    const gruppen = NAMEN[z.s], t = wahl.getippt ? norm(wahl.el.value) : '';
+    const namen = t ? gruppen.flatMap(([, l]) => l).filter(n => norm(n).includes(t))
+                    : gruppen.length === 1 ? gruppen[0][1] : ((gruppen.find(([g]) => g === wahl.gruppe) || [])[1] || []);
+    // Getippt, aber nichts passt: Feld zu, frei weiterschreiben
+    if (t && !namen.length) { pop.hidden = true; return; }
+    pop.innerHTML = (gruppen.length > 1 ? '<div class="a-gruppen">' + gruppen.map(([g]) =>
+        '<button data-gruppe="' + esc(g) + '"' + (g === wahl.gruppe && !t ? ' class="an"' : '') + '>' + esc(g) + '</button>').join('') + '</div>' : '') +
+      (namen.length ? '<div class="a-namen">' + namen.map(n =>
+        '<button data-wert="' + esc(n) + '"' + (norm(n) === norm(z.name) ? ' class="an"' : '') + '>' + esc(n) + '</button>').join('') + '</div>' : '');
+  }
+  pop.hidden = false;
+  wahlPlatzieren();
+  requestAnimationFrame(() => { if (!pop.hidden) pop.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+}
+// Antippen im Feld nimmt der Eingabe nicht den Fokus (Tastatur bleibt, Feld bleibt offen)
+['pointerdown', 'mousedown'].forEach(t => $('#auswahl').addEventListener(t, e => e.preventDefault()));
+$('#auswahl').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !wahl) return;
+  const { el, i, f } = wahl;
+  if (b.dataset.gruppe != null) { wahl.gruppe = b.dataset.gruppe; wahl.getippt = false; wahlZeigen(); return; }
+  if (b.dataset.wahlAktion === 'tippen') {
+    wahlZu(); el.readOnly = false; el.inputMode = LABEL[f][1]; el.focus(); el.select(); return;
+  }
+  const v = b.dataset.wahlAktion === 'leeren' ? '' : b.dataset.wert;
+  plan.u[i][f] = v; el.value = v; merken(true); wahlZu();
+  if (f === 'name') el.blur();   // Tastatur weg
+});
+document.addEventListener('pointerdown', e => { if (wahl && e.target !== wahl.el && !$('#auswahl').contains(e.target)) wahlZu(); }, true);
+document.addEventListener('keydown', e => { if (wahl && (e.key === 'Escape' || (e.key === 'Enter' && wahl.art === 'name'))) wahlZu(); });
+document.addEventListener('focusin', e => {
+  const t = e.target;
+  if (t.dataset && t.dataset.f === 'name' && NAMEN[plan.u[+t.dataset.i].s] && !(wahl && wahl.el === t)) wahlOeffnen(t, 'name');
+});
+document.addEventListener('focusout', e => {
+  const t = e.target;
+  if (wahl && wahl.el === t && wahl.art === 'name') wahlZu();
+  // Nach "Andere Angabe eintippen" wieder zum Antippen
+  if (t.dataset && t.dataset.aktion === 'wahl' && !t.readOnly) { t.readOnly = true; t.inputMode = 'none'; }
+});
+addEventListener('resize', () => { if (wahl && !$('#auswahl').hidden) wahlPlatzieren(); });   // Tastatur geht auf oder zu
+
 /* ---------- Entwurf: nur fuer diesen Tab, uebersteht ein Neuladen ---------- */
 function merken(veraendert){
   if (veraendert) { geaendert = true; standZeigen(); }
@@ -336,7 +458,10 @@ addEventListener('beforeunload', e => { if (geaendert) { e.preventDefault(); e.r
 
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t.dataset.f) plan.u[+t.dataset.i][t.dataset.f] = t.value;
+  if (t.dataset.f) {
+    plan.u[+t.dataset.i][t.dataset.f] = t.value;
+    if (wahl && wahl.el === t && wahl.art === 'name') { wahl.getippt = true; wahlZeigen(); }
+  }
   else if (t.id === 'p-name') plan.n = t.value;
   else if (t.id === 'p-plan') plan.p = t.value;
   else if (t.id === 'p-datum') plan.d = t.value;
@@ -568,14 +693,19 @@ document.addEventListener('click', async ev => {
       document.querySelector('input[data-i="' + (plan.u.length - 1) + '"][data-f="name"]').focus();
       break;
     }
+    case 'wahl': {
+      if (!t.readOnly) break;   // wird gerade frei eingetippt
+      if (wahl && wahl.el === t) wahlZu(); else wahlOeffnen(t, 'zahl');
+      break;
+    }
     case 'kat': {
       const z = plan.u[i], k = t.dataset.k;
       if (z.s === k || voll(k)) break;
       // Was die neue Kategorie nicht hat, bleibt im Entwurf gemerkt (zurueckwechseln holt es wieder), kommt aber nicht in den Plan
-      const weg = ['pause', 'kg', 'skizze'].filter(f => z[f] && gehoert(z.s, f) && !gehoert(k, f));
+      const weg = ['serien', 'pause', 'kg', 'skizze'].filter(f => z[f] && gehoert(z.s, f) && !gehoert(k, f));
       z.s = k; merken(true); zeichne();
       if (weg.length) {
-        const namen = weg.map(f => ({ pause:'Pause', kg:'Gewicht', skizze:'Skizze' }[f]));
+        const namen = weg.map(f => ({ serien:'Serien', pause:'Pause', kg:'Gewicht', skizze:'Skizze' }[f]));
         toast(namen.slice(0, -1).join(', ') + (namen.length > 1 ? ' und ' : '') + namen[namen.length - 1] + ' gibt es bei ' + BEREICH[k].titel +
               ' nicht. Wechselst du zurück, ist alles wieder da.');
       }
@@ -705,7 +835,7 @@ $('#datei').onchange = e => {
   zeichne();
 })();
 // Neue Fassung laden, wenn das Tablet zur Seite zurueckkehrt - aber nie mitten in ungespeicherter Arbeit
-const APP_STAND = 'b181102273';
+const APP_STAND = '5d2865b26f';
 Kern.aufNeuePruefen(APP_STAND, () => !geaendert);
 </script>
 </body>

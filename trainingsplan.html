@@ -291,7 +291,7 @@ td.k .ce{ font-size:10pt; color:var(--tinte); }
   </div>
 </div>
 
-<script src="kern.js?v=b181102273"></script>
+<script src="kern.js?v=5d2865b26f"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 
 <script>
@@ -301,7 +301,7 @@ td.k .ce{ font-size:10pt; color:var(--tinte); }
    Koordination beides. Intern heisst das Feld weiter "dauer". */
 const ABSCHNITTE = {
   cardio:       { titel:'Cardio',        zeilen:4, hoehe:7.8,
-                  spalten:[['name','',64], ['serien','Serien',19], ['dauer','Dauer (Min)',27]] },
+                  spalten:[['name','',64], ['dauer','Dauer (Min)',27]] },   // ohne Serien (Nils, 17.10.2026)
   geraete:      { titel:'Geräte',        zeilen:8, hoehe:8.8,
                   spalten:[['name','',64], ['serien','Serien',19], ['dauer','Wdh',27], ['pause','Pause',19], ['kg','Gewicht / kg',24]] },
   koordination: { titel:'Koordination',  zeilen:5, hoehe:8,
@@ -544,9 +544,9 @@ document.getElementById('b-handy-laden').onclick = async () => {
 /* Erfundener Plan, nur zum Zeigen, wie getippter Text aussieht — keine echte Person, keine Empfehlung */
 const BEISPIEL = {
   'name':'Martina M.', 'plan':'Ganzkörper', 'datum':'16.10.2026', 'betreuer':'Nils Schwab',
-  'cardio.0.name':'Fahrradergometer', 'cardio.0.serien':'1', 'cardio.0.dauer':'10 Min',
+  'cardio.0.name':'Fahrrad', 'cardio.0.dauer':'10',
   'cardio.0.notiz':'Zum Aufwärmen, Stufe 6. So locker, dass Sie sich noch unterhalten können.',
-  'cardio.1.name':'Crosstrainer', 'cardio.1.serien':'1', 'cardio.1.dauer':'8 Min',
+  'cardio.1.name':'Crosstrainer', 'cardio.1.dauer':'8',
   'cardio.1.notiz':'Zum Abschluss ruhig ausklingen lassen.',
   'geraete.0.name':'Beinpresse', 'geraete.0.serien':'3', 'geraete.0.dauer':'12', 'geraete.0.pause':'60 s', 'geraete.0.kg':'50',
   'geraete.0.notiz':'Sitz Stufe 4. Knie zeigen über die Fußspitzen, unten nicht ganz durchstrecken. Langsam zurück, 3 Sekunden.',
@@ -556,9 +556,9 @@ const BEISPIEL = {
   'geraete.2.notiz':'Brust bleibt am Polster. Schulterblätter zusammenziehen, kurz halten.',
   'geraete.3.name':'Latzug', 'geraete.3.serien':'3', 'geraete.3.dauer':'10', 'geraete.3.pause':'60 s', 'geraete.3.kg':'25',
   'geraete.3.notiz':'Zur Brust ziehen, nicht in den Nacken.',
-  'geraete.4.name':'Beinstrecker', 'geraete.4.serien':'2', 'geraete.4.dauer':'15', 'geraete.4.pause':'45 s', 'geraete.4.kg':'15',
+  'geraete.4.name':'Beinstrecker', 'geraete.4.serien':'2', 'geraete.4.dauer':'15', 'geraete.4.pause':'60 s', 'geraete.4.kg':'15',
   'geraete.4.notiz':'Erst links, dann rechts einzeln. Oben eine Sekunde halten.',
-  'geraete.5.name':'Rückenstrecker', 'geraete.5.serien':'2', 'geraete.5.dauer':'15', 'geraete.5.pause':'45 s', 'geraete.5.kg':'30',
+  'geraete.5.name':'Rückenstrecker', 'geraete.5.serien':'2', 'geraete.5.dauer':'15', 'geraete.5.pause':'60 s', 'geraete.5.kg':'30',
   'geraete.5.notiz':'Bewegung kommt aus der Hüfte, Kopf in Verlängerung der Wirbelsäule.',
   'koordination.0.name':'Posturomed, Einbeinstand', 'koordination.0.serien':'3', 'koordination.0.dauer':'je 30 s',
   'koordination.0.notiz':'Knie leicht gebeugt, Blick auf einen festen Punkt. Wird es zu leicht: Augen schließen.',
@@ -566,11 +566,11 @@ const BEISPIEL = {
   'koordination.1.notiz':'Ein Fuß direkt vor dem anderen. Neben der Wand üben.',
   'frei.0.name':'Seilzug Rudern einarmig\nRolle auf Brusthöhe', 'frei.0.serien':'3', 'frei.0.dauer':'je 12', 'frei.0.pause':'60 s', 'frei.0.kg':'10',
   'frei.0.notiz':'Schrittstellung, das Gegenbein vorn. Ellenbogen nah am Körper nach hinten ziehen, die Schulter bleibt unten. Langsam nachgeben.',
-  'frei.1.name':'Seilzug Drehung\nvon hoch nach tief', 'frei.1.serien':'2', 'frei.1.dauer':'je 10', 'frei.1.pause':'45 s', 'frei.1.kg':'7,5',
+  'frei.1.name':'Seilzug Drehung\nvon hoch nach tief', 'frei.1.serien':'2', 'frei.1.dauer':'je 10', 'frei.1.pause':'60 s', 'frei.1.kg':'7,5',
   'frei.1.notiz':'Arme bleiben lang, die Drehung kommt aus dem Oberkörper. Die Hüfte zeigt nach vorn.',
   'frei.2.name':'Kniebeuge mit Kurzhantel', 'frei.2.serien':'3', 'frei.2.dauer':'12', 'frei.2.pause':'60 s', 'frei.2.kg':'6',
   'frei.2.notiz':'Hantel vor der Brust. Gesäß nach hinten wie zum Hinsetzen, Fersen bleiben am Boden.',
-  'frei.3.name':'Ausfallschritt im Stand', 'frei.3.serien':'3', 'frei.3.dauer':'je 10', 'frei.3.pause':'45 s',
+  'frei.3.name':'Ausfallschritt im Stand', 'frei.3.serien':'3', 'frei.3.dauer':'je 10', 'frei.3.pause':'60 s',
   'frei.3.notiz':'Hinteres Knie Richtung Boden, Oberkörper bleibt aufrecht.',
 };
 // Beispielskizze: Strichfigur in Schrittstellung am Seilzugturm, Pfeil zeigt die Zugrichtung
