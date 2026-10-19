@@ -17,7 +17,7 @@
 <style>
 /* ===================================================================
    BKS Bewegungszentrum — Trainingsplan fuers Handy
-   Fassung 17.10.2026
+   Fassung 19.10.2026
 
    Ohne Konto und ohne Datenbank:
    - Der Plan steckt im Link selbst, hinter dem #. Dieser Teil einer
@@ -29,6 +29,9 @@
      Uebung), liegt nur im Speicher des Browsers auf diesem Handy.
    - "Sicherung" packt Plan und Verlauf wieder in einen Link: zum
      Umzug auf ein neues Handy oder zum Schicken an den Trainer.
+   - "Meinen Stand zeigen" (seit 19.10.2026): QR-Code fuer das Tablet
+     beim Check-up, mit Gewichten, Verlauf und eigenen Aenderungen.
+     Der Trainer sieht ihn nur, wenn das Mitglied ihn zeigt.
 
    Mehrere Plaene (Splits, z. B. Oberkoerper/Unterkoerper): jeder hat
    einen eigenen QR-Code und landet hier als eigener Plan, oben gibt es
@@ -100,6 +103,9 @@ input, textarea{ font:inherit; color:inherit; }
 .scan{ position:relative; margin-top:12px; border-radius:14px; overflow:hidden; background:#000; aspect-ratio:3 / 4; max-height:62vh; }
 .scan video{ display:block; width:100%; height:100%; object-fit:cover; }
 .scan-rahmen{ position:absolute; inset:14% 10%; border:3px solid rgba(255,255,255,.85); border-radius:14px; pointer-events:none; }
+/* "Meinen Stand zeigen": Code fuer das Tablet des Trainers, weisser Rand gehoert zum Code */
+.qr-gross{ margin:14px auto 8px; max-width:420px; background:#fff; }
+.qr-gross svg{ display:block; width:100%; height:auto; }
 /* Umschalter zwischen mehreren Plaenen (Splits) */
 .planwahl{ display:flex; gap:8px; padding:12px 14px 0; overflow-x:auto; }
 .planwahl button{ flex:none; padding:9px 16px; border-radius:999px; background:var(--weiss); border:1.5px solid var(--linie);
@@ -231,7 +237,7 @@ h4{ margin-top:22px; font-size:13px; font-weight:600; letter-spacing:.12em; text
 
 <noscript><p style="padding:18px">Bitte JavaScript einschalten, sonst lässt sich der Plan nicht anzeigen.</p></noscript>
 
-<script src="../kern.js?v=5d2865b26f"></script>
+<script src="../kern.js?v=94f4d9742e"></script>
 <script>
 const SPEICHER = 'bks-trainingsplan';
 const KATEGORIE = { c:'Cardio', g:'Gerät', k:'Koordination', f:'Freie Übung' };
@@ -298,6 +304,7 @@ async function uebernehmen(code){
   if (daten.t === 'stand') return sicherungUebernehmen(daten);
   if (daten.t === 'plan') return planUebernehmen(daten, code);
   if (daten.t === 'plaene') return plaeneUebernehmen(daten, code);
+  if (daten.t === 'handy') { toast('Diesen Code scannt Ihr Trainer mit dem Tablet.'); return null; }
   return false;
 }
 
@@ -374,12 +381,11 @@ function planEinfuegen(daten){
     const vorher = vorherige[i];
     const verlauf = vorher ? vorher.kg.slice() : [];
     if (verlauf.length) verlaufBleibt = true;
-    // Neues Gewicht vom Trainer kommt dazu, wenn es vom zuletzt eingetragenen abweicht
-    if (kg && !verlauf.some(v => v.d === datum && norm(v.w) === norm(kg)) && (!verlauf.length || norm(verlauf[verlauf.length - 1].w) !== norm(kg)))
-      verlauf.push({ d: datum, w: kg, q: 't' });
+    if (kg && trainerGewichtNeu(vorher, verlauf, kg, datum, daten.h)) verlauf.push({ d: datum, w: kg, q: 't' });
     verlauf.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+    // tk: das Gewicht, das dieser Plan vom Trainer hatte (auch wenn es nicht in den Verlauf kam)
     neu.push({ id: vorher ? vorher.id : neueId(), s, name, serien, dauer, pause, notiz, skizze: skizze || '',
-               kg: verlauf.map(({ d, w, q }) => ({ d, w, q })) });
+               kg: verlauf.map(({ d, w, q }) => ({ d, w, q })), tk: kg || (vorher && vorher.tk) || undefined });
   });
   // Hat das Mitglied die Reihenfolge selbst geaendert, bleibt sie. Neue Uebungen kommen hinter die,
   // die beim Trainer davor steht (die erste an den Anfang).
@@ -397,6 +403,23 @@ function planEinfuegen(daten){
   // verlaufBleibt nur fuer die Meldung, wird nicht gespeichert
   Object.defineProperty(P, 'verlaufBleibt', { value: verlaufBleibt, enumerable: false, configurable: true });
   return P;
+}
+
+/* Gewicht vom Trainer: kommt nur in den Verlauf, wenn es neu ist. Fehler bis 19.10.2026: Hatte der
+   Trainer beim Check-up ein Gewicht nicht nachgetragen, stand im neuen Plan das alte, und das selbst
+   gesteigerte Gewicht sprang darauf zurueck (40 -> selbst 50 -> neuer Plan mit 40 -> wieder 40). Neu ist es,
+   - wenn der Plan auf dem Stand dieses Handys beruht (h: Zeitpunkt von "Meinen Stand zeigen") und seitdem
+     nichts eingetragen wurde. Dann hat der Trainer das aktuelle Gewicht gesehen und bewusst gesetzt.
+   - sonst nur, wenn der Trainer es seit dem letzten Plan geaendert hat (tk; aeltere Staende haben
+     kein tk, dort zaehlt der letzte Eintrag vom Trainer). */
+const gleichesGewicht = (a, b) => zahl(a) !== null && zahl(b) !== null ? zahl(a) === zahl(b) : norm(a) === norm(b);
+function trainerGewichtNeu(vorher, verlauf, kg, datum, h){
+  const letzter = verlauf[verlauf.length - 1];
+  if (letzter && gleichesGewicht(letzter.w, kg)) return false;
+  if (verlauf.some(v => v.d === datum && gleichesGewicht(v.w, kg))) return false;
+  if (h && !verlauf.some(v => v.d > String(h).slice(0, 10))) return true;
+  const tk = vorher && vorher.tk != null ? vorher.tk : (verlauf.filter(v => v.q === 't').pop() || {}).w;
+  return tk == null || !gleichesGewicht(tk, kg);
 }
 
 function sicherungUebernehmen(daten){
@@ -580,7 +603,9 @@ function mehrAnsicht(){
       '<ul class="liste">' + stand.plaene.map(P => '<li><span>' + esc(planTitel(P)) + ' · Stand ' + datumDe(P.plan.d, true) + '</span>' +
         '<button class="textknopf" style="margin:0" data-aktion="plan-weg" data-key="' + esc(P.key) + '">Entfernen</button></li>').join('') + '</ul></div>'
     : '';
-  return '<div class="titel"><h1>Mehr</h1></div>' + plaene +
+  return '<div class="titel"><h1>Mehr</h1></div>' +
+    '<div class="karte"><h3>Check-up beim Trainer</h3><p>Zeigen Sie Ihrem Trainer diesen Code. Er scannt ihn mit dem Tablet und sieht Ihre aktuellen Gewichte und was Sie am Plan geändert haben.</p>' +
+      '<button class="knopf" data-aktion="trainer-code">Meinen Stand zeigen</button></div>' + plaene +
     '<div class="karte"><h3>Als App aufs Handy</h3><p>Dann ist der Plan mit einem Tipp da, und Ihre Einträge bleiben dauerhaft erhalten.</p>' + anleitungHtml() + '</div>' +
     '<div class="karte"><h3>Neuer oder weiterer Plan</h3><p>Hat Ihr Trainer den Plan angepasst oder einen weiteren angelegt, scannen Sie den QR-Code hier in der App. Ihr Verlauf bleibt erhalten. Einen geschickten Link können Sie auch einfügen.</p>' +
       '<button class="knopf" data-aktion="scannen">QR-Code scannen</button> ' +
@@ -589,7 +614,7 @@ function mehrAnsicht(){
       '<button class="knopf zweit" data-aktion="feld-uebernehmen">Übernehmen</button></div>' +
     '<div class="karte"><h3>Sicherung</h3><p>Packt Ihren Plan samt Verlauf in einen Link. Damit holen Sie alles auf ein neues Handy, oder Sie schicken ihn Ihrem Trainer zur nächsten Anpassung.</p>' +
       '<button class="knopf" data-aktion="sichern">Sicherungslink teilen</button></div>' +
-    '<div class="karte"><h3>Ihre Daten</h3><p>Ihr Plan und Ihre Einträge liegen nur auf diesem Handy. Es gibt kein Konto und keine Datenbank. Der Plan steckt im Link selbst, der Server, der diese Seite ausliefert, bekommt ihn nicht zu sehen.</p>' +
+    '<div class="karte"><h3>Ihre Daten</h3><p>Ihr Plan und Ihre Einträge liegen nur auf diesem Handy. Es gibt kein Konto und keine Datenbank. Der Plan steckt im Link selbst, der Server, der diese Seite ausliefert, bekommt ihn nicht zu sehen. Ihr Trainer sieht Ihren Stand nur, wenn Sie ihm mit „Meinen Stand zeigen“ den Code zeigen.</p>' +
       '<button class="knopf gefahr" data-aktion="loeschen">Alles auf diesem Handy löschen</button></div>' + fuss();
 }
 
@@ -605,63 +630,68 @@ function blattZu(){ scanStop(); $('#sheet').classList.remove('offen'); }
    Deshalb wird hier in der App gescannt. Android-Chrome liest QR-Codes selbst (BarcodeDetector),
    sonst wird beim ersten Mal jsQR geladen. */
 const scanKnopf = text => '<button class="scan-knopf" data-aktion="scannen"><svg viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M8 12h8"/></svg>' + esc(text) + '</button>';
-let scanStrom = null, scanLaeuft = false;
-function skriptLaden(src){
-  return new Promise((ok, fehler) => {
-    const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fehler(new Error('nicht geladen'));
-    document.head.appendChild(s);
-  });
-}
-function scanStop(){
-  scanLaeuft = false;
-  if (scanStrom) { scanStrom.getTracks().forEach(t => t.stop()); scanStrom = null; }
-}
-async function scanner(){
+// Kamera und Erkennung: Kern.qrLeser (../kern.js, gleich fuer Handy und Tablet)
+let leser = null;
+function scanStop(){ if (leser) { leser.stop(); leser = null; } }
+function scanner(){
   blatt(blattKopf('QR-Code scannen') +
     '<p class="leise" style="margin-top:6px">Halten Sie die Kamera auf den QR-Code am Tablet des Trainers.</p>' +
     '<div class="scan"><video id="scan-video" playsinline muted autoplay></video><div class="scan-rahmen"></div></div>' +
     '<p class="leise" id="scan-info" style="margin-top:10px">Kamera wird gestartet …</p>');
   const info = t => { const el = $('#scan-info'); if (el) el.textContent = t; };
-  try {
-    scanStrom = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-  } catch (e) {
-    info('Die Kamera ließ sich nicht öffnen. Erlauben Sie den Kamerazugriff, wenn das Handy danach fragt. Oder lassen Sie sich den Link schicken und fügen ihn unter „Mehr“ ein.');
-    return;
+  scanStop();
+  leser = Kern.qrLeser($('#scan-video'), { info, texte: {
+      kamera: 'Die Kamera ließ sich nicht öffnen. Erlauben Sie den Kamerazugriff, wenn das Handy danach fragt. Oder lassen Sie sich den Link schicken und fügen ihn unter „Mehr“ ein.',
+      laden: 'QR-Leser wird geladen …',
+      ladenFehler: 'Der QR-Leser ließ sich nicht laden. Ist das Handy online?',
+      halten: 'Halten Sie den Code ruhig in den Rahmen, etwa 20 bis 30 cm entfernt.' },
+    treffer: text => {
+      if (!ausLink(text)) { info('Das ist kein Trainingsplan-Code. Bitte den Code vom Tablet scannen.'); return false; }
+      blattZu(); linkVerarbeiten(text); return true;
+    } });
+}
+
+/* ---------- Meinen Stand zeigen (Check-up, seit 19.10.2026) ----------
+   Gegenrichtung zum QR-Code vom Tablet. Wunsch Nils: am Tablet sehen, was das Mitglied selbst
+   geaendert hat, ohne Datenbank (Entscheidung 19.10.2026). Der Stand steckt im Code wie der Plan;
+   das Tablet scannt ihn mit "Handy scannen" (tablet.html, dort auch das Format). Skizzen bleiben weg,
+   die hat das Tablet. Ist der Code zu lang, wird erst der Verlauf gekuerzt (Start und die letzten
+   Eintraege, dann nur der letzte), zuletzt fallen die Hinweise weg: Ein kleiner Code laesst sich von
+   einem Handybildschirm viel sicherer lesen. Der Zeitpunkt z kommt spaeter im Plan als h zurueck,
+   siehe trainerGewichtNeu. */
+const CODE_ZIEL = 1300;   // so lang darf der Link sein, damit das Tablet ihn sicher liest
+function jetztText(){ const d = new Date(); return heuteIso() + ' ' + zwei(d.getHours()) + ':' + zwei(d.getMinutes()); }
+function verlaufFuerCode(kg, stufe){
+  const l = kg.map(v => v.q === 't' ? [v.d, v.w, 't'] : [v.d, v.w]);
+  if (stufe === 0 || l.length <= 1) return l;
+  if (stufe === 1 && l.length > 3) return [l[0]].concat(l.slice(-2));
+  return stufe === 1 ? l : l.slice(-1);
+}
+async function trainerLink(){
+  const n = (stand.plaene.find(P => P.plan && P.plan.n) || { plan: {} }).plan.n || '', z = jetztText();
+  let passt = null;
+  for (let k = 0; k <= 3; k++) {
+    const daten = { t: 'handy', v: 1, n, z, k, l: stand.plaene.map(P => ({ p: P.p, d: (P.plan || {}).d || '', b: (P.plan || {}).b || '',
+      x: P.ex.map(e => [e.s, e.name, e.serien, e.dauer, e.pause, k < 3 ? e.notiz : '', verlaufFuerCode(e.kg, k)]) })) };
+    const link = Kern.BASIS + 'tablet.html#p=' + await packen(daten);
+    if (link.length <= CODE_ZIEL) return { link, k };
+    if (!passt && link.length <= Kern.QR_MAX) passt = { link, k };
   }
-  if (!$('#sheet').classList.contains('offen')) { scanStop(); return; }   // schon wieder geschlossen
-  const v = $('#scan-video'); v.srcObject = scanStrom;
-  try { await v.play(); } catch (e) {}
-  let erkenne = null;
-  if ('BarcodeDetector' in window) {
-    try { const d = new BarcodeDetector({ formats: ['qr_code'] }); erkenne = async () => { const r = await d.detect(v); return r[0] && r[0].rawValue; }; } catch (e) {}
+  return passt;
+}
+async function trainerCodeZeigen(){
+  if (typeof qrcode === 'undefined') {
+    try { await Kern.skriptLaden('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'); }
+    catch (e) { toast('Für den Code braucht das Handy eine Internetverbindung.'); return; }
   }
-  if (!erkenne) {
-    if (!window.jsQR) {
-      info('QR-Leser wird geladen …');
-      try { await skriptLaden('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js'); }
-      catch (e) { info('Der QR-Leser ließ sich nicht laden. Ist das Handy online?'); return; }
-    }
-    const c = document.createElement('canvas'), ctx = c.getContext('2d', { willReadFrequently: true });
-    erkenne = async () => {
-      if (!v.videoWidth) return null;
-      const s = Math.min(1, 1280 / v.videoWidth);
-      c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s);
-      ctx.drawImage(v, 0, 0, c.width, c.height);
-      const r = jsQR(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: 'dontInvert' });
-      return r && r.data;
-    };
-  }
-  info('Halten Sie den Code ruhig in den Rahmen, etwa 20 bis 30 cm entfernt.');
-  scanLaeuft = true;
-  const runde = async () => {
-    if (!scanLaeuft) return;
-    let text = null;
-    try { text = await erkenne(); } catch (e) {}
-    if (text && ausLink(text)) { blattZu(); linkVerarbeiten(text); return; }
-    if (text) info('Das ist kein Trainingsplan-Code. Bitte den Code vom Tablet scannen.');
-    setTimeout(runde, 180);
-  };
-  runde();
+  const r = await trainerLink();
+  let svg = '';
+  if (r) { try { const q = qrcode(0, 'L'); q.addData(r.link); q.make(); svg = q.createSvgTag({ cellSize: 4, margin: 4, scalable: true }); } catch (e) {} }
+  if (!svg) { toast('Ihr Stand ist zu groß für einen Code. Schicken Sie ihn unter „Mehr“ als Sicherungslink.'); return; }
+  blatt(blattKopf('Ihr Stand für den Trainer') +
+    '<p class="leise" style="margin-top:6px">Halten Sie das Handy vor die Kamera des Tablets. Ihr Trainer sieht dann Ihre aktuellen Gewichte und was Sie am Plan geändert haben.</p>' +
+    '<div class="qr-gross">' + svg + '</div>' +
+    (r.k ? '<p class="leise">Der Verlauf ist gekürzt, damit der Code gut lesbar bleibt.</p>' : ''));
 }
 const blattKopf = titel => '<div class="sheet-kopf"><h3>' + esc(titel) + '</h3><button class="schliessen" data-aktion="zu" aria-label="Schließen">×</button></div>';
 
@@ -712,8 +742,9 @@ async function sicherungTeilen(){
 async function linkVerarbeiten(text){
   const code = ausLink(text);
   if (!code) { toast('Darin steckt kein Trainingsplan-Link.'); return; }
-  if (await uebernehmen(code)) zeige('plan');
-  else if (stand) toast('Diesen Plan haben Sie schon.');
+  const ok = await uebernehmen(code);
+  if (ok) zeige('plan');
+  else if (ok === false && stand) toast('Diesen Plan haben Sie schon.');
 }
 
 document.addEventListener('click', async ev => {
@@ -789,6 +820,7 @@ document.addEventListener('click', async ev => {
     }
     case 'feld-uebernehmen': linkVerarbeiten($('#link-feld').value); break;
     case 'sichern': sicherungTeilen(); break;
+    case 'trainer-code': trainerCodeZeigen(); break;
     case 'loeschen':
       if (confirm('Plan und Verlauf von diesem Handy löschen? Das lässt sich nicht rückgängig machen.')) {
         stand = null; try { localStorage.removeItem(SPEICHER); } catch (e) {} zeige('plan');
@@ -861,7 +893,7 @@ async function start(){
 addEventListener('hashchange', start);
 start();
 // Stand dieser Fassung, traegt veroeffentlichen.ps1 ein (lokal bleibt der Platzhalter stehen)
-const APP_STAND = '5d2865b26f';
+const APP_STAND = '94f4d9742e';
 Kern.aufNeuePruefen(APP_STAND);
 </script>
 </body>

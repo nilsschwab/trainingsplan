@@ -1,6 +1,6 @@
 /* ===================================================================
    BKS Trainingsplan — gemeinsamer Kern
-   Fassung 17.10.2026
+   Fassung 19.10.2026
 
    Genutzt von:
    - trainingsplan.html   PC: A4-Vorlage zum Drucken und Speichern
@@ -21,6 +21,8 @@
      einen Stift gesehen, zaehlen Finger nicht mehr (Handballen).
    - aktenDatei: kleine HTML-Datei fuer die Mitgliederakte, oeffnet per
      Doppelklick die Vorlage mit dem Plan (siehe trainingsplan.html).
+   - qrLeser: QR-Code mit der Kamera lesen. Das Handy scannt den Plan vom
+     Tablet, das Tablet seit 19.10.2026 den Stand vom Handy.
    =================================================================== */
 var Kern = (function () {
   'use strict';
@@ -251,6 +253,68 @@ var Kern = (function () {
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') pruefen(); });
   }
 
+  /* ---------- QR-Code mit der Kamera lesen ----------
+     Handy: Code vom Tablet, in der App gescannt (die Kamera-App oeffnet auf dem iPhone sonst Safari
+     statt der App). Tablet: Code "Meinen Stand zeigen" vom Handy (seit 19.10.2026).
+     Android-Chrome liest QR-Codes selbst (BarcodeDetector), sonst wird beim ersten Mal jsQR geladen
+     (jsDelivr, auf cdnjs nicht vorhanden).
+     o: { kamera: 'environment' | 'user', breite: gewuenschte Bildbreite, info(text),
+          texte: { kamera, laden, ladenFehler, halten }, treffer(text): true = fertig }
+     Liefert { stop }. stop() beendet Kamera und Suche, auch wenn die Kamera gerade erst startet. */
+  function skriptLaden(src) {
+    return new Promise(function (ok, fehler) {
+      var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = function () { fehler(new Error('nicht geladen')); };
+      document.head.appendChild(s);
+    });
+  }
+  function qrLeser(video, o) {
+    var strom = null, laeuft = true;
+    function stop() {
+      laeuft = false;
+      if (strom) { strom.getTracks().forEach(function (t) { t.stop(); }); strom = null; }
+    }
+    (async function () {
+      var b = o.breite || 1280;
+      try {
+        strom = await navigator.mediaDevices.getUserMedia({ video: { facingMode: o.kamera || 'environment', width: { ideal: b }, height: { ideal: Math.round(b * 9 / 16) } }, audio: false });
+      } catch (e) { o.info(o.texte.kamera); return; }
+      if (!laeuft) { stop(); return; }   // schon wieder geschlossen
+      video.srcObject = strom;
+      try { await video.play(); } catch (e) {}
+      var erkenne = null;
+      if ('BarcodeDetector' in window) {
+        try { var d = new BarcodeDetector({ formats: ['qr_code'] }); erkenne = async function () { var r = await d.detect(video); return r[0] && r[0].rawValue; }; } catch (e) {}
+      }
+      if (!erkenne) {
+        if (!window.jsQR) {
+          o.info(o.texte.laden);
+          try { await skriptLaden('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js'); }
+          catch (e) { o.info(o.texte.ladenFehler); return; }
+        }
+        var c = document.createElement('canvas'), ctx = c.getContext('2d', { willReadFrequently: true });
+        erkenne = async function () {
+          if (!video.videoWidth) return null;
+          var s = Math.min(1, 1280 / video.videoWidth);
+          c.width = Math.round(video.videoWidth * s); c.height = Math.round(video.videoHeight * s);
+          ctx.drawImage(video, 0, 0, c.width, c.height);
+          var r = jsQR(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: 'dontInvert' });
+          return r && r.data;
+        };
+      }
+      if (!laeuft) return;
+      o.info(o.texte.halten);
+      var runde = async function () {
+        if (!laeuft) return;
+        var text = null;
+        try { text = await erkenne(); } catch (e) {}
+        if (text && o.treffer(text)) { stop(); return; }
+        setTimeout(runde, 180);
+      };
+      runde();
+    })();
+    return { stop: stop };
+  }
+
   function heute() { return new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
   // z. B. "Trainingsplan Martina M. Oberkoerper (16.10.2026)"
   function dateiname(name, datum, plan) {
@@ -264,6 +328,6 @@ var Kern = (function () {
     skizzePacken: skizzePacken, skizzeAuspacken: skizzeAuspacken, skizzeSvg: skizzeSvg, Zeichenfeld: Zeichenfeld,
     handyLink: handyLink, ohneSkizzen: ohneSkizzen, reihe: reihe, ausReihe: ausReihe,
     aktenDatei: aktenDatei, heute: heute, dateiname: dateiname,
-    aufNeuePruefen: aufNeuePruefen
+    aufNeuePruefen: aufNeuePruefen, skriptLaden: skriptLaden, qrLeser: qrLeser
   };
 })();

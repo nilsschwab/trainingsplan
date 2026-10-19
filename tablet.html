@@ -12,7 +12,7 @@
 <style>
 /* ===================================================================
    BKS Bewegungszentrum — Trainingsplan am Tablet
-   Fassung 17.10.2026
+   Fassung 19.10.2026
 
    Fuer die Geraeteeinweisung am Android-Tablet: Plan im Stehen
    eintippen, Skizzen mit Stift oder Finger zeichnen. Danach:
@@ -58,6 +58,13 @@
    1-30, Pause 30/60/90/120 s. Frei bleiben Gewicht und "Wdh / Dauer"
    bei Koordination. Cardio hat keine Serien mehr.
 
+   Stand vom Handy (19.10.2026, Wunsch Nils): "Handy scannen" liest den
+   Code, den das Mitglied in der App unter "Mehr" -> "Meinen Stand
+   zeigen" aufruft. Danach sieht man je Plan, was sich am Handy
+   geaendert hat (Gewichte, neue, geaenderte, herausgenommene Uebungen),
+   und kann den Plan mit diesem Stand oeffnen. Ohne Datenbank: Der Stand
+   steckt im Code, wie der Plan in die andere Richtung.
+
    Der Entwurf, an dem gerade gearbeitet wird, liegt zusaetzlich im
    Sitzungsspeicher dieses Tabs: Ein versehentliches Neuladen verliert
    nichts.
@@ -69,7 +76,7 @@
 *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html{ background:var(--grund); }
 body{ font-family:'Inter',system-ui,sans-serif; color:var(--tinte); font-size:17px; line-height:1.4;
-  max-width:980px; margin:0 auto; padding:0 20px 120px; font-synthesis:none; }
+  max-width:980px; margin:0 auto; padding:0 20px 160px; font-synthesis:none; }   /* unten Platz, auch wenn die Leiste umbricht */
 .serif{ font-family:'Instrument Serif',Georgia,serif; font-style:italic; font-weight:400; color:var(--indigo); letter-spacing:-.01em; }
 button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; }
 input, textarea{ font:inherit; color:inherit; }
@@ -155,7 +162,7 @@ body.zieht-gerade{ user-select:none; -webkit-user-select:none; }
 .leiste{ position:fixed; left:0; right:0; bottom:0; background:rgba(255,255,255,.97); border-top:1px solid var(--linie);
   padding:12px 20px calc(12px + env(safe-area-inset-bottom, 0px)); z-index:5; }
 .leiste-innen{ max-width:980px; margin:0 auto; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-.leiste button{ height:52px; padding:0 18px; border-radius:12px; font-weight:600; font-size:16px; background:var(--feld); color:var(--indigo); }
+.leiste button{ height:52px; padding:0 15px; border-radius:12px; font-weight:600; font-size:16px; background:var(--feld); color:var(--indigo); }
 .leiste .leise{ background:none; color:var(--grau); padding:0 10px; }
 .leiste .abstand{ flex:1; }
 .leiste .haupt{ background:var(--indigo); color:#fff; }
@@ -199,6 +206,27 @@ body.zieht-gerade{ user-select:none; -webkit-user-select:none; }
 .sicherung p{ font-size:14px; }
 .sicherung p.alt{ color:#8a4b00; font-weight:600; }
 
+/* Stand vom Handy: Kamera, Uebersicht, Band ueber den Uebungen, Zeile an der Karte */
+.scan{ position:relative; margin-top:12px; border-radius:14px; overflow:hidden; background:#000; aspect-ratio:4 / 3; }
+.scan video{ display:block; width:100%; height:100%; object-fit:cover; }
+.scan video.gespiegelt{ transform:scaleX(-1); }
+.scan-rahmen{ position:absolute; inset:12% 22%; border:3px solid rgba(255,255,255,.85); border-radius:14px; pointer-events:none; }
+#d-handy .d-inhalt{ width:760px; }
+.h-plan{ margin-top:16px; padding-top:14px; border-top:1px solid var(--linie); }
+.h-plan h3{ font-size:20px; font-weight:600; color:var(--tinte); }
+.h-plan h3 small{ display:block; margin-top:2px; font-size:14px; font-weight:400; color:var(--grau); }
+.h-liste{ list-style:none; margin-top:8px; }
+.h-liste li{ display:grid; grid-template-columns:1fr auto; gap:2px 14px; padding:8px 0; border-bottom:1px solid var(--linie); font-size:16px; }
+.h-liste li b{ color:var(--tinte); font-weight:600; }
+.h-liste li span{ text-align:right; font-variant-numeric:tabular-nums; }
+.h-liste li span.plus{ color:#2e7d4f; font-weight:600; }
+.h-liste li small{ grid-column:1 / -1; font-size:13px; color:var(--grau); }
+.handy-band{ margin-top:18px; background:#e9f4ed; color:#1f5135; border-radius:14px; padding:12px 16px; font-size:15px; }
+.handy-band p + p{ margin-top:6px; }
+.handy-band button{ color:var(--indigo); font-weight:600; font-size:15px; padding:2px 6px; }
+.handy-band button:disabled{ color:#9aa0ad; cursor:not-allowed; }
+.karte .handy{ background:#eef7f1; color:#1f5135; border-radius:10px; padding:8px 12px; font-size:14px; }
+
 .toast{ position:fixed; left:50%; bottom:100px; transform:translateX(-50%) translateY(16px); opacity:0; background:var(--tinte); color:#fff;
   border-radius:12px; padding:12px 18px; font-size:16px; max-width:calc(100% - 40px); transition:opacity .2s, transform .2s; z-index:20; pointer-events:none; }
 .toast.an{ opacity:1; transform:translateX(-50%) translateY(0); }
@@ -229,6 +257,7 @@ body.zieht-gerade{ user-select:none; -webkit-user-select:none; }
 
 <nav class="leiste"><div class="leiste-innen">
   <button data-aktion="plaene">Pläne</button>
+  <button data-aktion="scannen">Handy scannen</button>
   <button class="leise" data-aktion="neu">Neuer Plan</button>
   <button class="leise" data-aktion="weiterer">Weiterer Plan</button>
   <span class="abstand"></span>
@@ -266,10 +295,28 @@ body.zieht-gerade{ user-select:none; -webkit-user-select:none; }
   </div>
 </div></div>
 
+<div class="dialog" id="d-scan"><div class="d-inhalt">
+  <h2>Stand <span class="serif">vom Handy</span></h2>
+  <p>Das Mitglied tippt in der App auf „Mehr“ und „Meinen Stand zeigen“ und hält das Handy vor die Kamera.</p>
+  <div class="scan"><video id="scan-video" playsinline muted autoplay></video><div class="scan-rahmen"></div></div>
+  <p class="klein" id="scan-info" style="margin-top:10px"></p>
+  <div class="d-knoepfe">
+    <button data-aktion="kamera">Andere Kamera</button>
+    <button data-aktion="zu">Schließen</button>
+  </div>
+</div></div>
+
+<div class="dialog" id="d-handy"><div class="d-inhalt">
+  <h2>Stand <span class="serif">vom Handy</span></h2>
+  <p class="klein" id="handy-kopf"></p>
+  <div id="handy-inhalt"></div>
+  <div class="d-knoepfe"><button data-aktion="zu">Schließen</button></div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 <div class="auswahl" id="auswahl" hidden></div>
 
-<script src="kern.js?v=5d2865b26f"></script>
+<script src="kern.js?v=94f4d9742e"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 // max: Zeilen dieser Kategorie im A4-Ausdruck
@@ -349,7 +396,7 @@ function karteHtml(z, i){
       const w = zahlenWahl(a.s, f);
       return '<label>' + feldLabel(a.s, f) + '<input ' + at(f) + (w ? ' data-aktion="wahl" readonly inputmode="none"' : ' inputmode="' + LABEL[f][1] + '"') +
         ' value="' + esc(z[f]) + '" autocomplete="off"></label>';
-    }).join('') + '</div>' +
+    }).join('') + '</div>' + handyZeile(z) +
     '<label>Hinweis<textarea ' + at('notiz') + ' rows="2">' + esc(z.notiz) + '</textarea></label>' +
     (a.skizze ? '<div class="k-skizze"><span class="lbl">Skizze (mit Stift oder Finger)</span><div class="zf" ' + ziel + '></div>' +
       '<div class="zf-knoepfe"><button data-aktion="rueck" ' + ziel + '>Rückgängig</button><button data-aktion="leeren" ' + ziel + '>Skizze löschen</button></div></div>' : '') +
@@ -359,7 +406,7 @@ function zeichne(){
   wahlZu();
   $('#p-name').value = plan.n; $('#p-plan').value = plan.p || ''; $('#p-datum').value = plan.d; $('#p-betreuer').value = plan.b;
   const volle = ABSCHNITTE.filter(a => voll(a.s));
-  $('#uebungen').innerHTML =
+  $('#uebungen').innerHTML = handyBand() +
     '<div class="liste-kopf"><h2>Übungen</h2><small>Platz im Ausdruck: ' + ABSCHNITTE.map(a => a.titel + ' ' + zahlIn(a.s) + ' von ' + a.max).join(' · ') + '</small></div>' +
     plan.u.map(karteHtml).join('') +
     '<div class="dazu-zeile"><span>Übung hinzufügen:</span>' + ABSCHNITTE.map(a =>
@@ -477,7 +524,9 @@ const gehoert = (s, f) => f === 'name' || f === 'notiz' || BEREICH[s].felder.inc
 function planDaten(){
   const liste = plan.u.filter(r => r.name.trim()).map(r => ({ s: r.s, z: REIHE.map(f => gehoert(r.s, f) ? String(r[f] || '').trim() : '') }));
   const { x, o } = Kern.ausReihe(liste);   // nach Kategorie fuer die A4-Tabellen, o fuer die Reihenfolge
-  return { t:'plan', v:1, n: plan.n.trim(), p: (plan.p || '').trim(), d: plan.d.trim() || Kern.heute(), b: plan.b.trim(), x, o };
+  // h: Der Plan beruht auf dem Stand vom Handy zu diesem Zeitpunkt (siehe "Stand vom Handy")
+  return Object.assign({ t:'plan', v:1, n: plan.n.trim(), p: (plan.p || '').trim(), d: plan.d.trim() || Kern.heute(), b: plan.b.trim(), x, o },
+                       plan.h ? { h: plan.h } : {});
 }
 const anzahl = p => Object.values(p.x).reduce((n, z) => n + z.length, 0);
 function bereit(){
@@ -492,6 +541,7 @@ function planAus(daten){
   const S = daten.t === 'stand' ? daten.stand : null;
   const s = S ? (S.plaene ? (S.plaene.find(x => x.key === S.aktiv) || S.plaene[0]) : S) : null, p = s ? s.plan : daten;
   const neu = { id:null, n: p.n || '', p: (s ? s.p : p.p) || '', d: s ? Kern.heute() : (p.d || Kern.heute()), b: p.b || plan.b, u:[] };
+  if (!s && p.h) neu.h = p.h;
   // In der Reihenfolge des Plans (vom Handy: wie das Mitglied sie sortiert hat)
   const reihe = s ? s.ex.map(e => ({ s: e.s, z: [e.name, e.serien, e.dauer, e.pause, e.kg.length ? e.kg[e.kg.length - 1].w : '', e.notiz, e.skizze || ''] }))
                   : Kern.reihe(daten);
@@ -636,6 +686,173 @@ function einspielen(text){
   }).catch(() => alert('Der Plan ließ sich nicht lesen.'));
 }
 
+/* ---------- Stand vom Handy (seit 19.10.2026) ----------
+   Wunsch Nils: am Tablet sehen, was Mitglieder selbst geaendert haben, z. B. ein hoeheres Gewicht.
+   Ohne Datenbank (Entscheidung Nils, 19.10.2026): Das Mitglied zeigt in der App "Mehr" -> "Meinen
+   Stand zeigen" einen QR-Code, das Tablet scannt ihn mit "Handy scannen". Die Uebersicht zeigt je
+   Plan, was am Handy anders ist als in der letzten Fassung hier. "Mit diesem Stand oeffnen" holt den
+   Plan so in die Eingabe, wie er am Handy steht (Reihenfolge, Werte, letztes Gewicht). Skizzen kommen
+   vom Tablet, das Handy schickt sie nicht mit. An den Karten steht dann der Gewichtsverlauf vom Handy.
+   Der gescannte Stand bleibt im Sitzungsspeicher: Das Band ueber den Uebungen oeffnet die Uebersicht
+   wieder, z. B. fuer den zweiten Split, ohne neu zu scannen.
+   Im Plan steht danach h, der Zeitpunkt des Codes. So weiss das Handy beim neuen QR-Code, dass der
+   Trainer seine Gewichte gesehen hat (trainerGewichtNeu in app/index.html).
+   Code vom Handy: { t:'handy', v:1, n: Name, z: 'JJJJ-MM-TT hh:mm', k: 0-3 (wie stark gekuerzt),
+     l: [ { p, d: Plandatum JJJJ-MM-TT, b, x: [ [s, Name, Serien, Wdh, Pause, Hinweis, [[Datum, Gewicht, 't' = vom Trainer], ...]] ] } ] } */
+const HANDY = 'bks-tablet-handy', KAMERA = 'bks-tablet-kamera';
+const isoDe = iso => { const [j, m, t] = String(iso || '').split('-'); return t ? t + '.' + m + '.' + j : ''; };   // 2026-10-16 -> 16.10.2026
+const kurzDe = iso => isoDe(iso).slice(0, 6);   // 16.10.
+const deIso = de => { const m = String(de || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/); return m ? (m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0') : ''; };
+const zeitDe = z => { const [tag, uhr] = String(z || '').split(' '); return isoDe(tag) + (uhr ? ', ' + uhr + ' Uhr' : ''); };
+const zahlAus = w => { const t = String(w == null ? '' : w).trim().replace(',', '.'); return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : null; };
+const gleichesGewicht = (a, b) => zahlAus(a) !== null && zahlAus(b) !== null ? zahlAus(a) === zahlAus(b) : norm(a) === norm(b);
+const mitKg = w => zahlAus(w) !== null ? zahlAus(w).toLocaleString('de-DE', { maximumFractionDigits: 2 }) + ' kg' : String(w || '–');
+
+// Kamera und Erkennung: Kern.qrLeser (kern.js, gleich fuer Handy und Tablet)
+let leser = null;
+function scanStop(){ if (leser) { leser.stop(); leser = null; } }
+function scanStarten(){
+  scanStop();
+  // Vorgabe Frontkamera: Das Mitglied haelt das Handy vor den Bildschirm, der Trainer sieht das Bild
+  const kamera = holen(localStorage, KAMERA) || 'user';
+  const v = $('#scan-video'), info = t => { $('#scan-info').textContent = t; };
+  v.classList.toggle('gespiegelt', kamera === 'user');
+  info('Kamera wird gestartet …');
+  leser = Kern.qrLeser(v, { kamera, breite: 1920, info, texte: {
+      kamera: 'Die Kamera ließ sich nicht öffnen. Bitte erlauben, wenn Chrome nach der Kamera fragt.',
+      laden: 'QR-Leser wird geladen …',
+      ladenFehler: 'Der QR-Leser ließ sich nicht laden. Ist das Tablet online?',
+      halten: 'Das Handy ruhig vor die Kamera halten, etwa 20 bis 30 cm entfernt.' },
+    treffer: text => {
+      const code = Kern.codeAus(text);
+      if (!code) { info('Das ist kein Code aus der Trainingsplan-App.'); return false; }
+      dialogZu($('#d-scan')); codeVomHandy(code); return true;
+    } });
+}
+async function codeVomHandy(code){
+  let daten = null;
+  try { daten = await Kern.auspacken(code); } catch (e) {}
+  if (!daten || daten.t !== 'handy' || !Array.isArray(daten.l)) {
+    alert('Das ist nicht der Code aus „Meinen Stand zeigen“. Das Mitglied findet ihn in der App unter „Mehr“.'); return;
+  }
+  ablegen(sessionStorage, HANDY, JSON.stringify(daten));
+  handyZeigen(daten);
+}
+
+// Plaene vom Handy den Plaenen hier zuordnen: gleicher Name und gleicher Planname
+function handyPlaene(daten){
+  const eigene = bibLaden().plaene.filter(e => norm(e.n) === norm(daten.n));
+  return daten.l.map(L => {
+    let e = eigene.find(x => norm(x.p) === norm(L.p));
+    if (!e && daten.l.length === 1 && eigene.length === 1) e = eigene[0];   // je ein Plan, nur der Planname weicht ab
+    return { L, e };
+  });
+}
+/* Was ist am Handy anders als in der letzten Fassung hier (T)? Uebungen werden zugeordnet wie am Handy:
+   erst Kategorie und Name, dann nur der Name. Liefert die Zeilen fuer die Eingabe (Werte vom Handy,
+   hv = Gewichtsverlauf, hneu = vom Mitglied hinzugefuegt, haend = geaenderte Werte), die Liste fuer die
+   Uebersicht und die Uebungen, die am Handy fehlen. */
+function vergleich(L, T){
+  const rest = T ? T.u.slice() : [], liste = [];
+  const nimm = (s, name, egal) => { const j = rest.findIndex(z => (egal || z.s === s) && norm(z.name) === norm(name)); return j < 0 ? null : rest.splice(j, 1)[0]; };
+  const x = (L.x || []).filter(r => BEREICH[r[0]] && r[1]);
+  const paar = x.map(r => nimm(r[0], r[1], false));
+  x.forEach((r, i) => { if (!paar[i]) paar[i] = nimm(r[0], r[1], true); });
+  const zeilen = x.map(([s, name, serien, dauer, pause, notiz, verlauf], i) => {
+    const t = paar[i], hv = verlauf || [], letzt = hv[hv.length - 1];
+    const z = Object.assign(leereZeile(s), { name, serien: serien || '', dauer: dauer || '', pause: pause || '', notiz: notiz || '',
+      kg: letzt ? letzt[1] : (t ? t.kg : ''), skizze: t && BEREICH[s].skizze ? t.skizze : '', hv, hneu: !!T && !t, haend: [] });
+    if (!T) return z;
+    if (!t) { liste.push({ name, text: 'vom Mitglied hinzugefügt', unter: letzt ? 'Gewicht ' + mitKg(letzt[1]) : '' }); return z; }
+    if (t.s !== s) z.haend.push('Kategorie ' + BEREICH[t.s].eine + ' → ' + BEREICH[s].eine);
+    ['serien', 'dauer', 'pause'].forEach(f => { if (gehoert(s, f) && norm(t[f]) !== norm(z[f])) z.haend.push(feldLabel(s, f) + ' ' + (t[f] || '–') + ' → ' + (z[f] || '–')); });
+    if (norm(t.notiz) !== norm(z.notiz)) z.haend.push('Hinweis geändert');
+    if (letzt && !gleichesGewicht(t.kg, letzt[1])) {
+      const a = zahlAus(t.kg), b = zahlAus(letzt[1]);
+      liste.push({ name, text: mitKg(t.kg) + ' → ' + mitKg(letzt[1]), plus: a !== null && b !== null && b > a,
+                   unter: 'eingetragen am ' + isoDe(letzt[0]) + (letzt[2] === 't' ? ' vom Trainer' : ' vom Mitglied') });
+    }
+    if (z.haend.length) liste.push({ name, text: z.haend.join(', ') });
+    return z;
+  });
+  if (T) {
+    // Reihenfolge: Stehen die wiedererkannten Uebungen am Handy anders als hier?
+    const pos = paar.filter(Boolean).map(t => T.u.indexOf(t));
+    if (pos.some((p, i) => i && p < pos[i - 1])) liste.push({ name: 'Reihenfolge', text: 'am Handy geändert' });
+    rest.forEach(z => liste.push({ name: z.name, text: 'am Handy herausgenommen' }));
+  }
+  return { zeilen, liste, entfernt: rest };
+}
+
+let handyTeile = [], handyDaten = null;
+async function handyZeigen(daten){
+  handyDaten = daten; handyTeile = [];
+  for (const { L, e } of handyPlaene(daten)) {
+    let T = null;
+    if (e) { try { T = planAus(await Kern.auspacken(letzte(e).code)); } catch (err) {} }
+    handyTeile.push({ L, e, T, v: vergleich(L, T) });
+  }
+  handyTeile.sort((a, b) => norm(a.L.p) < norm(b.L.p) ? -1 : 1);
+  $('#handy-kopf').textContent = (daten.n || 'Ohne Name') + ' · Code vom ' + zeitDe(daten.z) + (daten.k ? ' · Verlauf gekürzt' : '');
+  $('#handy-inhalt').innerHTML = handyTeile.map((t, k) => {
+    const hier = t.e ? letzte(t.e).d : '';
+    const unter = t.e ? 'Letzte Fassung hier: ' + hier + ' · Plan am Handy vom ' + isoDe(t.L.d)
+                      : 'Diesen Plan gibt es auf diesem Tablet nicht. Öffnen und speichern legt ihn neu an.';
+    // Hat das Handy eine aeltere Fassung, stammt ein Teil der Unterschiede vom Trainer
+    const alt = t.e && t.L.d && deIso(hier) > t.L.d
+      ? '<p class="warn">Am Handy ist noch der Plan vom ' + isoDe(t.L.d) + '. Die Fassung vom ' + esc(hier) + ' hat das Mitglied nicht gescannt, ein Teil der Unterschiede kommt daher.</p>' : '';
+    const l = t.v.liste;
+    const inhalt = !t.T ? '<p class="klein" style="margin-top:6px">' + t.v.zeilen.length + (t.v.zeilen.length === 1 ? ' Übung' : ' Übungen') + ' am Handy.</p>'
+      : l.length ? '<ul class="h-liste">' + l.map(x => '<li><b>' + esc(x.name) + '</b><span' + (x.plus ? ' class="plus"' : '') + '>' + esc(x.text) + '</span>' +
+          (x.unter ? '<small>' + esc(x.unter) + '</small>' : '') + '</li>').join('') + '</ul>'
+      : '<p class="klein" style="margin-top:6px">Am Handy ist alles wie in der letzten Fassung hier.</p>';
+    return '<section class="h-plan"><h3>' + esc(t.L.p || (t.e && t.e.p) || 'Trainingsplan') + '<small>' + esc(unter) + '</small></h3>' + alt + inhalt +
+      '<div class="d-knoepfe" style="margin-top:12px"><button class="haupt" data-aktion="handy-oeffnen" data-k="' + k + '">Mit diesem Stand öffnen</button></div></section>';
+  }).join('');
+  ['#d-plaene', '#d-qr'].forEach(s => $(s).classList.remove('offen'));
+  $('#d-handy').classList.add('offen');
+}
+
+function handyOeffnen(k){
+  const t = handyTeile[k]; if (!t) return;
+  if (geaendert && !confirm('Der Plan auf dem Bildschirm ist nicht gespeichert. Trotzdem den Stand vom Handy öffnen?')) return;
+  const kopie = o => JSON.parse(JSON.stringify(o));   // die Uebersicht bleibt, wie sie war
+  const neu = { id: t.e ? t.e.id : null, n: t.e ? t.e.n : (handyDaten.n || ''), p: t.e ? (t.e.p || '') : (t.L.p || ''), d: Kern.heute(),
+                b: t.T ? t.T.b : (t.L.b || plan.b), u: [], h: handyDaten.z, handy: { z: handyDaten.z, entfernt: kopie(t.v.entfernt) } };
+  // Je Kategorie nur so viele Uebungen, wie der Ausdruck Zeilen hat
+  const je = {}, zuviel = [];
+  kopie(t.v.zeilen).forEach(z => { je[z.s] = (je[z.s] || 0) + 1; if (je[z.s] > BEREICH[z.s].max) zuviel.push(z.name); else neu.u.push(z); });
+  if (zuviel.length) alert('Dafür reichen die Zeilen im Ausdruck nicht: ' + zuviel.join(', '));
+  plan = neu; geaendert = !t.e || t.v.liste.length > 0; merken(); zeichne(); window.scrollTo(0, 0);
+  dialogZu($('#d-handy'));
+  toast(t.v.liste.length || !t.e ? 'Stand vom Handy geöffnet. Anpassen, speichern und danach den neuen QR-Code fürs Handy zeigen.'
+                                 : 'Stand vom Handy geöffnet. Am Handy ist alles wie hier.');
+}
+
+// Band ueber den Uebungen, solange der Plan auf dem Stand vom Handy beruht
+function handyBand(){
+  if (!plan.handy) return '';
+  const weg = plan.handy.entfernt || [];
+  return '<div class="handy-band"><p><b>Stand vom Handy</b> vom ' + esc(zeitDe(plan.handy.z)) + '. Gewichte und Änderungen des Mitglieds sind übernommen. ' +
+      'Danach speichern und den neuen QR-Code fürs Handy zeigen.' +
+      (holen(sessionStorage, HANDY) ? ' <button data-aktion="handy-uebersicht">Übersicht vom Handy</button>' : '') + '</p>' +
+    (weg.length ? '<p>Am Handy herausgenommen: ' + weg.map((z, j) => esc(z.name) + ' <button data-aktion="handy-wieder" data-j="' + j + '"' +
+      (voll(z.s) ? ' disabled title="Im Ausdruck ist kein Platz mehr"' : '') + '>Wieder aufnehmen</button>').join(' · ') + '</p>' : '') + '</div>';
+}
+// Zeile an der Karte: was das Mitglied geaendert hat und wie sich das Gewicht am Handy entwickelt hat
+function handyZeile(z){
+  const teile = [], v = z.hv || [];
+  if (z.hneu) teile.push('Vom Mitglied hinzugefügt.');
+  if (z.haend && z.haend.length) teile.push('Am Handy geändert: ' + z.haend.join(', ') + '.');
+  if (v.length > 1 || (v.length && z.hneu)) {
+    const k = v.length > 5 ? [v[0], null].concat(v.slice(-3)) : v;
+    teile.push('Gewicht am Handy: ' + k.map(e => e ? mitKg(e[1]) + ' (' + kurzDe(e[0]) + ')' : '…').join(' → '));
+  }
+  return teile.length ? '<p class="handy">' + esc(teile.join(' ')) + '</p>' : '';
+}
+
+function dialogZu(d){ if (!d) return; d.classList.remove('offen'); if (d.id === 'd-scan') scanStop(); }
+
 /* ---------- Aktionen ---------- */
 let teilLink = '';
 
@@ -683,7 +900,7 @@ async function qrZeigen(alle){
 
 document.addEventListener('click', async ev => {
   const t = ev.target.closest('[data-aktion]');
-  if (ev.target.classList.contains('dialog')) { ev.target.classList.remove('offen'); return; }
+  if (ev.target.classList.contains('dialog')) { dialogZu(ev.target); return; }
   if (!t) return;
   const i = +t.dataset.i;
   switch (t.dataset.aktion) {
@@ -763,7 +980,22 @@ document.addEventListener('click', async ev => {
       if (geaendert && !confirm('Neuen Plan anfangen? Die Änderungen am aktuellen Plan sind nicht gespeichert.')) break;
       plan = leererPlan(); geaendert = false; ablegen(sessionStorage, ENTWURF, null); zeichne(); window.scrollTo(0, 0); break;
     }
-    case 'zu': t.closest('.dialog').classList.remove('offen'); break;
+    case 'scannen': $('#d-scan').classList.add('offen'); scanStarten(); break;
+    case 'kamera': ablegen(localStorage, KAMERA, (holen(localStorage, KAMERA) || 'user') === 'user' ? 'environment' : 'user'); scanStarten(); break;
+    case 'handy-oeffnen': handyOeffnen(+t.dataset.k); break;
+    case 'handy-uebersicht': {
+      let d = null; try { d = JSON.parse(holen(sessionStorage, HANDY)); } catch (e) {}
+      if (d) handyZeigen(d); else toast('Der Stand vom Handy ist nicht mehr da. Bitte neu scannen.');
+      break;
+    }
+    case 'handy-wieder': {
+      const j = +t.dataset.j, z = plan.handy && plan.handy.entfernt[j];
+      if (!z || voll(z.s)) break;
+      plan.handy.entfernt.splice(j, 1); plan.u.push(z); merken(true); zeichne();
+      toast('„' + z.name + '“ steht wieder im Plan, ganz unten.');
+      break;
+    }
+    case 'zu': dialogZu(t.closest('.dialog')); break;
   }
 });
 
@@ -824,18 +1056,31 @@ $('#datei').onchange = e => {
 
 /* ---------- Start ---------- */
 (async () => {
-  const code = Kern.codeAus(location.hash);   // Akten-Datei vom PC, nicht dort geoeffnet
+  // Akten-Datei vom PC, nicht dort geoeffnet - oder der Code vom Handy, mit der Kamera-App gescannt
+  const code = Kern.codeAus(location.hash);
+  let vomHandy = null;
   if (code) {
-    try { plan = planAus(await Kern.auspacken(code)); geaendert = true; merken(); } catch (e) { alert('Der Plan ließ sich nicht lesen.'); }
+    try {
+      const d = await Kern.auspacken(code);
+      if (d.t === 'handy') vomHandy = d; else { plan = planAus(d); geaendert = true; merken(); }
+    } catch (e) { alert('Der Plan ließ sich nicht lesen.'); }
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
-  } else {
+  }
+  if (!code || vomHandy) {
     const entwurf = holen(sessionStorage, ENTWURF);
     if (entwurf) { try { const d = JSON.parse(entwurf); plan = aufListe(d.plan); geaendert = !!d.geaendert; } catch (e) {} }
   }
   zeichne();
+  if (vomHandy) { ablegen(sessionStorage, HANDY, JSON.stringify(vomHandy)); handyZeigen(vomHandy); }
 })();
+// Code vom Handy mit der Kamera-App gescannt, waehrend diese Seite schon offen ist: Dann aendert sich nur der Teil nach #
+addEventListener('hashchange', () => {
+  const code = Kern.codeAus(location.hash); if (!code) return;
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  codeVomHandy(code);
+});
 // Neue Fassung laden, wenn das Tablet zur Seite zurueckkehrt - aber nie mitten in ungespeicherter Arbeit
-const APP_STAND = '5d2865b26f';
+const APP_STAND = '94f4d9742e';
 Kern.aufNeuePruefen(APP_STAND, () => !geaendert);
 </script>
 </body>
